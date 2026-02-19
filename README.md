@@ -4,7 +4,9 @@
 [![BEHA](https://img.shields.io/badge/BEHA-SmartHeater-orange)](https://www.beha.no/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-A Home Assistant add-on that bridges **BEHA SmartHeaters** (WiFi Gen1) to Home Assistant via MQTT, providing full climate control including temperature adjustment and native on/off toggle.
+THIS IS NOT OFFICIAL BEHA ADD-ON
+
+A Home Assistant add-on that bridges **BEHA SmartHeaters** (WiFi Gen1/Gen2) to Home Assistant via MQTT, providing full climate control including temperature adjustment and native on/off toggle.
 
 ## Features
 
@@ -30,9 +32,9 @@ The bridge authenticates with your BEHA account, polls the BEHA Cloud API every 
 
 Before installing the BEHA Bridge, make sure you have:
 
-### 1. Home Assistant OS or Supervised
+### 1. Home Assistant OS 
 
-This add-on requires **Home Assistant OS** (e.g. HA Green, HA Yellow, Raspberry Pi) or **Home Assistant Supervised**. It will **not** work on Home Assistant Container or Core installations.
+This add-on requires **Home Assistant OS** (e.g. HA Green, HA Yellow, Raspberry Pi).
 
 ### 2. SSH Access
 
