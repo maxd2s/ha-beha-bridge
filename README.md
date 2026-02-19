@@ -125,9 +125,6 @@ scp beha_auth.py beha_mqtt.py run.sh config.yaml build.yaml Dockerfile \
 |-------|-------|
 | **beha_email** | Your BEHA account email |
 | **beha_password** | Your BEHA account password |
-| mqtt_host | Leave as `core-mosquitto` (auto-configured) |
-| mqtt_user | Leave empty (auto-discovered from HA) |
-| mqtt_pass | Leave empty (auto-discovered from HA) |
 
 3. Click **Save**
 
@@ -161,11 +158,8 @@ scp beha_auth.py beha_mqtt.py run.sh config.yaml build.yaml Dockerfile \
 |--------|-------------|---------|
 | `beha_email` | Your BEHA account email address | *(required)* |
 | `beha_password` | Your BEHA account password | *(required)* |
-| `mqtt_host` | MQTT broker hostname | `core-mosquitto` |
-| `mqtt_user` | MQTT username | *(auto-discovered from HA)* |
-| `mqtt_pass` | MQTT password | *(auto-discovered from HA)* |
 
-> **MQTT credentials** are automatically discovered from the Home Assistant Mosquitto add-on via the Supervisor API. You only need to set `mqtt_user` and `mqtt_pass` manually if you are using an external MQTT broker.
+> **MQTT connection** is fully automatic — credentials are discovered from the Mosquitto add-on via the HA Supervisor API. No MQTT configuration needed.
 
 ---
 

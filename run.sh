@@ -6,7 +6,7 @@ bashio::log.info "========== BEHA Bridge Starting =========="
 bashio::log.info "PID: $$"
 
 # --- MQTT Credentials ---
-# Try HA Supervisor MQTT service discovery first (auto-provisioned credentials)
+# Use HA Supervisor MQTT service discovery (auto-provisioned by Mosquitto add-on)
 if bashio::services.available "mqtt"; then
     MQTT_HOST=$(bashio::services mqtt "host")
     MQTT_PORT=$(bashio::services mqtt "port")
@@ -14,12 +14,8 @@ if bashio::services.available "mqtt"; then
     MQTT_PASS=$(bashio::services mqtt "password")
     bashio::log.info "MQTT: Using HA service discovery credentials"
 else
-    # Fallback to manual config
-    MQTT_HOST=$(bashio::config 'mqtt_host')
-    MQTT_PORT=1883
-    MQTT_USER=$(bashio::config 'mqtt_user')
-    MQTT_PASS=$(bashio::config 'mqtt_pass')
-    bashio::log.info "MQTT: Using manual config (no service discovery)"
+    bashio::log.error "MQTT service not found! Make sure the Mosquitto broker add-on is installed and running."
+    exit 1
 fi
 
 BEHA_EMAIL=$(bashio::config 'beha_email')
