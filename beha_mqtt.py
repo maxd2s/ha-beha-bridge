@@ -23,151 +23,96 @@ POLL_INTERVAL    = 60
 # Global state
 client = None
 stop_event = threading.Event()
-
-# MQTT return code descriptions
-MQTT_RC_CODES = {
-    0: "Connected successfully",
-    1: "Incorrect protocol version",
-    2: "Invalid client identifier",
-    3: "Server unavailable",
-    4: "Bad username or password",
-    5: "Not authorized",
-}
-
-# Heater MAC -> heater UUID mapping (for API calls)
-HEATER_MAC_TO_UUID = {}
-# Heater MAC -> Room ID mapping
-HEATER_TO_ROOM = {}
+KNOWN_HEATERS = set()  # Track heater MACs for add/remove detection
 
 def on_connect(client, userdata, flags, rc, properties=None):
-    rc_val = rc if isinstance(rc, int) else rc.value
-    desc = MQTT_RC_CODES.get(rc_val, f"Unknown code {rc_val}")
-    if rc_val == 0:
-        print(f"✅ Connected to MQTT Broker! ({desc})")
-        # Subscribe to set commands and mode commands
+    if rc == 0:
+        print("✅ Connected to MQTT Broker!")
+        # Subscribe to temperature and mode commands
         client.subscribe(f"{TOPIC_PREFIX}/+/set")
         client.subscribe(f"{TOPIC_PREFIX}/+/mode/set")
-        print(f"📡 Subscribed to {TOPIC_PREFIX}/+/set and {TOPIC_PREFIX}/+/mode/set")
         # Publish discovery immediately
         publish_discovery()
     else:
-        print(f"❌ Failed to connect: {desc} (rc={rc_val})")
-
-def on_disconnect(client, userdata, flags, rc, properties=None):
-    rc_val = rc if isinstance(rc, int) else rc.value
-    print(f"⚠️ Disconnected from MQTT Broker (rc={rc_val}). Will auto-reconnect...")
+        print(f"❌ Failed to connect, return code {rc}")
 
 def on_message(client, userdata, msg):
     """Handle incoming set temperature and mode commands"""
     try:
         parts = msg.topic.split("/")
-        payload = msg.payload.decode().strip()
-        
-        if len(parts) >= 3:
+
+        # Temperature command: beha/<mac>/set  payload: <temp>
+        if len(parts) == 3 and parts[2] == "set":
             mac_address = parts[1]
-            room_id = HEATER_TO_ROOM.get(mac_address)
-            heater_uuid = HEATER_MAC_TO_UUID.get(mac_address)
-            
-            if not room_id or not heater_uuid:
-                print(f"❌ Could not find room/heater for MAC {mac_address}")
+            try:
+                target_temp = float(msg.payload.decode())
+            except ValueError:
+                print(f"⚠️ Invalid temp payload: {msg.payload}")
                 return
-            
-            room_name = next((r["name"] for r in _cached_rooms if r["id"] == room_id), room_id)
-            
-            # MODE COMMAND: beha/<mac>/mode/set  payload: "heat" or "off"
-            if len(parts) == 4 and parts[2] == "mode" and parts[3] == "set":
-                print(f"📥 Mode command: {mac_address} -> {payload}")
-                
-                if payload == "off":
-                    print(f"   ❄️ Turning OFF '{room_name}' via native API...")
-                    beha_auth.api("PATCH", f"heaters/{heater_uuid}/change_enabled_state",
-                                  {"is_enabled": False})
-                    print(f"   ✅ Heater disabled")
-                    
-                elif payload == "heat":
-                    print(f"   🔥 Turning ON '{room_name}' via native API...")
-                    beha_auth.api("PATCH", f"heaters/{heater_uuid}/change_enabled_state",
-                                  {"is_enabled": True})
-                    print(f"   ✅ Heater enabled")
-                
-                time.sleep(2)
-                update_state()
-                print(f"   📡 State published to MQTT")
-                return
-            
-            # TEMPERATURE COMMAND: beha/<mac>/set  payload: <temp>
-            if len(parts) == 3 and parts[2] == "set":
-                try:
-                    target_temp = float(payload)
-                except ValueError:
-                    print(f"⚠️ Invalid temp payload: {payload}")
-                    return
 
-                print(f"📥 Temp command: {mac_address} -> {target_temp}°C")
-                print(f"   🔧 Setting room '{room_name}' to {target_temp}°C...")
-                
-                beha_auth.api("PATCH", f"places/{beha_auth.PLACE_ID}/rooms/{room_id}/set_target_temperature",
+            print(f"📥 Received set command: {mac_address} -> {target_temp}°C")
+            room_id, place_id, heater_id = find_room_for_heater(mac_address)
+            if room_id and place_id:
+                print(f"   Setting room {room_id} temp...")
+                beha_auth.api("PATCH", f"places/{place_id}/rooms/{room_id}/set_target_temperature",
                               {"target_temperature": target_temp})
-                print(f"   📤 PATCH sent. Waiting 2s...")
-
-                time.sleep(2)
-
-                # Read back to verify
-                try:
-                    place = beha_auth.api("GET", f"places/{beha_auth.PLACE_ID}")
-                    for room in place["rooms"]:
-                        if room["id"] == room_id:
-                            confirmed_temp = room["target_temperature"]
-                            current_temp = room["latest_temperature"]
-                            if abs(confirmed_temp - target_temp) < 0.1:
-                                print(f"   ✅ CONFIRMED: '{room_name}' -> {confirmed_temp}°C (current: {current_temp}°C)")
-                            else:
-                                print(f"   ⚠️ MISMATCH: Requested {target_temp}°C but got {confirmed_temp}°C")
-                            break
-                except Exception as e:
-                    print(f"   ⚠️ Read-back failed: {e}")
-
                 update_state()
-                print(f"   📡 State published to MQTT")
+            else:
+                print(f"❌ Could not find room for heater {mac_address}")
+
+        # Mode command: beha/<mac>/mode/set  payload: "heat" or "off"
+        elif len(parts) == 4 and parts[2] == "mode" and parts[3] == "set":
+            mac_address = parts[1]
+            mode = msg.payload.decode().strip().lower()
+            print(f"📥 Received mode command: {mac_address} -> {mode}")
+
+            room_id, place_id, heater_id = find_room_for_heater(mac_address)
+            if heater_id:
+                is_enabled = mode == "heat"
+                print(f"   {'Enabling' if is_enabled else 'Disabling'} heater {heater_id}...")
+                beha_auth.api("PATCH", f"heaters/{heater_id}/change_enabled_state",
+                              {"is_enabled": is_enabled})
+                update_state()
+            else:
+                print(f"❌ Could not find heater for {mac_address}")
 
     except Exception as e:
         print(f"❌ Error handling message: {e}")
 
-# Cached rooms from last API call
-_cached_rooms = []
+def find_room_for_heater(mac):
+    """Finds the (room_id, place_id, heater_id) tuple for the heater with this MAC/ID."""
+    return HEATER_TO_ROOM.get(mac, (None, None, None))
 
-def fetch_place():
-    """Fetch all rooms and heaters in a single API call"""
-    global _cached_rooms
-    beha_auth.discover()  # Auto-discover PLACE_ID on first call
-    place = beha_auth.api("GET", f"places/{beha_auth.PLACE_ID}")
-    _cached_rooms = place["rooms"]
-    for room in _cached_rooms:
-        for h in room["heaters"]:
-            mac = h["device_unique_id"]
-            HEATER_TO_ROOM[mac] = room["id"]
-            HEATER_MAC_TO_UUID[mac] = h["id"]
-    return _cached_rooms
+# Maps heater MAC -> (room_id, place_id, heater_id)
+HEATER_TO_ROOM = {}
 
 def publish_discovery():
     """Publishes HA Auto-Discovery payloads for all known heaters"""
     print("📤 Publishing Home Assistant Auto-Discovery config...")
     try:
-        rooms = fetch_place()
-        for room in rooms:
+        discovery_data = beha_auth.get_discovery_info()
+        
+        for room in discovery_data:
+            rid = room["room_id"]
+            pid = room["place_id"]
+            name = room["room_name"]
+            
             for h in room["heaters"]:
-                hid = h["device_unique_id"]
+                hid = h["device_unique_id"]  # e.g. f412fa5adefc
+                HEATER_TO_ROOM[hid] = (rid, pid, h["id"])
                 
+                # Device Info
                 device_info = {
                     "identifiers": [f"beha_{hid}"],
-                    "name": f"{h['name']} ({room['name']})",
+                    "name": f"{h['name']} ({name})",
                     "manufacturer": "BEHA",
                     "model": "SmartHeater Gen1",
                     "sw_version": "1.0"
                 }
                 
+                # Climate Entity Config
                 payload = {
-                    "name": None,
+                    "name": None,  # Use device name
                     "unique_id": f"beha_{hid}_climate",
                     "device": device_info,
                     "temperature_unit": "C",
@@ -193,43 +138,90 @@ def publish_discovery():
                 
                 topic = f"{DISCOVERY_PREFIX}/climate/beha_{hid}/config"
                 client.publish(topic, json.dumps(payload), retain=True)
-
-        print(f"   ✅ Published discovery for {sum(len(r['heaters']) for r in rooms)} heaters in {len(rooms)} rooms")
+                print(f"   Published discovery for {h['name']}")
                 
     except Exception as e:
         print(f"❌ Error in discovery: {e}")
 
-def update_state():
-    """Polls Cloud API (single call) and publishes state for all heaters"""
+def sync():
+    """Full sync: re-publish discovery (handles adds/renames), update state, remove stale entities."""
+    global KNOWN_HEATERS
     try:
-        rooms = fetch_place()
-        
-        for room in rooms:
+        discovery_data = beha_auth.get_discovery_info()
+        current_heaters = set()
+
+        for room in discovery_data:
+            rid = room["room_id"]
+            pid = room["place_id"]
+            name = room["room_name"]
             target_temp = room["target_temperature"]
-            
+            current_temp = room.get("latest_temperature")
+
             for h in room["heaters"]:
                 hid = h["device_unique_id"]
-                is_enabled = h["is_enabled"]
-                is_offline = h["is_offline"]
-                current_temp = h.get("latest_reading_temperature", room["latest_temperature"])
-                
-                # Mode: "off" if disabled or offline, "heat" otherwise
-                if not is_enabled or is_offline:
-                    mode = "off"
-                else:
-                    mode = "heat"
-                
+                current_heaters.add(hid)
+                HEATER_TO_ROOM[hid] = (rid, pid, h["id"])
+
+                # ── Discovery (re-publish every cycle for renames / new devices) ──
+                device_info = {
+                    "identifiers": [f"beha_{hid}"],
+                    "name": f"{h['name']} ({name})",
+                    "manufacturer": "BEHA",
+                    "model": "SmartHeater Gen1",
+                    "sw_version": "1.0"
+                }
+                payload = {
+                    "name": None,
+                    "unique_id": f"beha_{hid}_climate",
+                    "device": device_info,
+                    "temperature_unit": "C",
+                    "min_temp": 5,
+                    "max_temp": 30,
+                    "temp_step": 0.5,
+                    "modes": ["heat", "off"],
+                    "current_temperature_topic": f"{TOPIC_PREFIX}/{hid}/state",
+                    "current_temperature_template": "{{ value_json.current_temperature }}",
+                    "temperature_command_topic": f"{TOPIC_PREFIX}/{hid}/set",
+                    "mode_command_topic": f"{TOPIC_PREFIX}/{hid}/mode/set",
+                    "mode_state_topic": f"{TOPIC_PREFIX}/{hid}/state",
+                    "mode_state_template": "{{ value_json.mode }}",
+                    "temperature_state_topic": f"{TOPIC_PREFIX}/{hid}/state",
+                    "temperature_state_template": "{{ value_json.target_temperature }}",
+                    "availability_topic": f"{TOPIC_PREFIX}/{hid}/availability"
+                }
+                client.publish(f"{DISCOVERY_PREFIX}/climate/beha_{hid}/config",
+                               json.dumps(payload), retain=True)
+
+                # ── State ──
+                is_offline = h.get("is_offline", False)
+                is_enabled = h.get("is_enabled", True)
                 state_payload = {
                     "current_temperature": current_temp,
                     "target_temperature": target_temp,
-                    "mode": mode
+                    "mode": "heat" if (is_enabled and not is_offline) else "off"
                 }
+                client.publish(f"{TOPIC_PREFIX}/{hid}/availability",
+                               "offline" if is_offline else "online", retain=True)
+                client.publish(f"{TOPIC_PREFIX}/{hid}/state",
+                               json.dumps(state_payload), retain=True)
 
-                client.publish(f"{TOPIC_PREFIX}/{hid}/availability", "offline" if is_offline else "online", retain=True)
-                client.publish(f"{TOPIC_PREFIX}/{hid}/state", json.dumps(state_payload), retain=True)
-                
+                if hid not in KNOWN_HEATERS:
+                    print(f"🆕 New heater discovered: {h['name']} ({hid})")
+
+        # ── Remove stale heaters (deleted in Beha app) ──
+        removed = KNOWN_HEATERS - current_heaters
+        for hid in removed:
+            print(f"🗑️  Heater {hid} removed — clearing from HA")
+            # Empty retained payload removes entity from HA
+            client.publish(f"{DISCOVERY_PREFIX}/climate/beha_{hid}/config", "", retain=True)
+            client.publish(f"{TOPIC_PREFIX}/{hid}/state", "", retain=True)
+            client.publish(f"{TOPIC_PREFIX}/{hid}/availability", "", retain=True)
+            HEATER_TO_ROOM.pop(hid, None)
+
+        KNOWN_HEATERS = current_heaters
+
     except Exception as e:
-        print(f"❌ Error in update loop: {e}")
+        print(f"❌ Error in sync: {e}")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -240,27 +232,27 @@ def main():
     args = parser.parse_args()
 
     global client
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="beha_bridge", protocol=mqtt.MQTTv311)
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     if args.user:
         client.username_pw_set(args.user, args.passw)
     
     client.on_connect = on_connect
     client.on_message = on_message
-    client.on_disconnect = on_disconnect
 
-    print(f"🔌 Connecting to MQTT Broker at {args.host}:{args.port} (user={args.user})...")
+    print(f"🔌 Connecting to MQTT Broker at {args.host}:{args.port}...")
     try:
         client.connect(args.host, args.port, 60)
-        print(f"🔌 connect() returned, waiting for on_connect callback...")
     except Exception as e:
         print(f"❌ Connection failed: {e}")
         sys.exit(1)
 
+    # Start MQTT loop in background
     client.loop_start()
 
+    # Main polling loop
     try:
         while True:
-            update_state()
+            sync()
             time.sleep(POLL_INTERVAL)
     except KeyboardInterrupt:
         print("\n👋 Stopping...")

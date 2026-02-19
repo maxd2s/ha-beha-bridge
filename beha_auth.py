@@ -1,25 +1,22 @@
 #!/usr/bin/env python3
 """
-BEHA SmartHeater Cloud API — Authentication & API Client
+BEHA SmartHeater Cloud API — Full Control (Auto-Discovery)
 
-Handles Azure B2C authentication for the BEHA cloud API.
-Supports headless login (email/password), browser-based login,
-and automatic token refresh.
-
-Usage (standalone):
+Usage:
     python3 beha_auth.py login                  # Login (opens browser)
-    python3 beha_auth.py login-headless         # Login without browser
+    python3 beha_auth.py login-headless         # Login without browser (needs email/password)
     python3 beha_auth.py refresh                # Refresh expired token
     python3 beha_auth.py token                  # Print access token
-    python3 beha_auth.py status                 # Show all heaters
-    python3 beha_auth.py set <room> <temp>      # Set temperature
+    python3 beha_auth.py status                 # Show all heaters (auto-discovered)
+    python3 beha_auth.py set <room_name> <temp> # Set temperature by room name
+    python3 beha_auth.py discover               # Print discovery JSON
 """
 
 import sys, os, json, time, hashlib, base64, secrets, webbrowser, urllib.parse, urllib.request, re
 import http.cookiejar
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# ── Azure B2C Configuration (public BEHA app identifiers) ───────────────────
+# ── Azure B2C Configuration ─────────────────────────────────────────────────
 TENANT       = "targetb2corganisation"
 POLICY       = "b2c_1_local_account_login"
 TENANT_ID    = "0962aeff-8b11-4faa-ac95-d81de2004e5c"
@@ -28,15 +25,11 @@ SCOPE        = "https://targetb2corganisation.onmicrosoft.com/beha-backend-prod/
 REDIRECT_URI = "msauth.com.beha.wifi-smartheater://auth"
 
 BASE_URL     = f"https://{TENANT}.b2clogin.com/{TENANT_ID}/{POLICY}"
-AUTH_URL      = f"{BASE_URL}/oauth2/v2.0/authorize"
+AUTH_URL     = f"{BASE_URL}/oauth2/v2.0/authorize"
 TOKEN_URL    = f"{BASE_URL}/oauth2/v2.0/token"
 
 # ── BEHA Cloud API ──────────────────────────────────────────────────────────
 API_BASE     = "https://behacloud.com/api"
-
-# Auto-discovered at runtime
-PLACE_ID     = None
-ROOMS        = {}
 
 TOKEN_FILE = os.path.expanduser("~/.beha_tokens.json")
 
@@ -212,7 +205,7 @@ def refresh():
     tokens = load_tokens()
     if not tokens or "refresh_token" not in tokens:
         raise Exception("No refresh token found. Run login first.")
-
+    
     data = urllib.parse.urlencode({
         "grant_type": "refresh_token", "client_id": CLIENT_ID,
         "refresh_token": tokens["refresh_token"], "scope": SCOPE,
@@ -233,7 +226,7 @@ def get_token():
     tokens = load_tokens()
     if not tokens:
         raise Exception("No tokens found. Run login first.")
-
+    
     expires_at = tokens.get("saved_at", 0) + tokens.get("expires_in", 0)
     if time.time() > expires_at - 60:
         if "refresh_token" in tokens:
@@ -256,56 +249,88 @@ def api(method, path, body=None):
         raise Exception(f"API Error {e.code}: {e.read().decode()}")
 
 
-# ── Auto-discover Place and Rooms ────────────────────────────────────────────
-def discover():
-    """Auto-discover the user's place ID and rooms from their account."""
-    global PLACE_ID, ROOMS
-    if PLACE_ID:
-        return  # Already discovered
-
-    places = api("GET", "places")
-    if not places:
-        raise Exception("No places found in your BEHA account")
-
-    # Use the first place
-    place = places[0] if isinstance(places, list) else places
-    PLACE_ID = place["id"]
-
-    # Build room name -> room ID mapping
-    place_data = api("GET", f"places/{PLACE_ID}")
-    ROOMS = {}
-    for room in place_data["rooms"]:
-        # Normalize room name for CLI use (lowercase, strip whitespace)
-        key = room["name"].strip().lower().replace(" ", "-")
-        ROOMS[key] = room["id"]
-
-    print(f"📍 Place: {place_data['name']} ({len(ROOMS)} rooms)")
-
-
 def show_status():
-    discover()
     print("\n🏠 BEHA Heater Status\n")
-    place = api("GET", f"places/{PLACE_ID}")
-    for r in place["rooms"]:
-        off = any(h["is_offline"] for h in r["heaters"])
-        enabled = all(h["is_enabled"] for h in r["heaters"])
-        status = "🔴" if off else ("⚪" if not enabled else "🟢")
-        print(f"  {status} {r['name']:25s} 🌡 {r['latest_temperature']:5.1f}°C → 🎯 {r['target_temperature']}°C")
-        for h in r["heaters"]:
-            state = "OFFLINE" if h["is_offline"] else ("disabled" if not h["is_enabled"] else "online")
-            print(f"     └─ {h['name']} ({h['device_unique_id']}) [{state}]")
+    discovery = get_discovery_info()
+    for room in discovery:
+        try:
+            off = any(h.get("is_offline", False) for h in room["heaters"])
+            name = room["room_name"]
+            temp = room.get("latest_temperature", "?")
+            target = room.get("target_temperature", "?")
+            temp_str = f"{temp:5.1f}" if isinstance(temp, (int, float)) else str(temp)
+            print(f"  {'🔴' if off else '🟢'} {name:25s} 🌡 {temp_str}°C → 🎯 {target}°C")
+            for h in room["heaters"]:
+                print(f"     └─ {h['name']} ({h['device_unique_id']}) [{'OFFLINE' if h['is_offline'] else 'online'}]")
+        except Exception as e:
+            print(f"  ⚠️ Error: {e}")
     print()
 
 
-def set_temp(room, temp):
-    discover()
-    if room not in ROOMS:
-        raise Exception(f"Unknown room '{room}'. Choose: {', '.join(ROOMS.keys())}")
+def set_temp(room_name, temp):
+    """Set target temperature for a room by name (case-insensitive partial match)."""
+    discovery = get_discovery_info()
+    room_name_lower = room_name.lower()
+    matched = None
+    for room in discovery:
+        if room["room_name"].lower() == room_name_lower or room_name_lower in room["room_name"].lower():
+            matched = room
+            break
+    if not matched:
+        available = [r["room_name"] for r in discovery]
+        raise Exception(f"Unknown room '{room_name}'. Available: {', '.join(available)}")
     temp = float(temp)
-    api("PATCH", f"places/{PLACE_ID}/rooms/{ROOMS[room]}/set_target_temperature",
+    place_id = matched["place_id"]
+    room_id = matched["room_id"]
+    api("PATCH", f"places/{place_id}/rooms/{room_id}/set_target_temperature",
         {"target_temperature": temp})
-    print(f"✅ {room} → {temp}°C")
+    print(f"✅ {matched['room_name']} → {temp}°C")
 
+
+
+# ── Discovery ──────────────────────────────────────────────────────────────────
+def get_discovery_info():
+    """Fetches all places, rooms, and heaters via users/configuration — single API call."""
+    discovery_data = []
+    try:
+        config = api("GET", "users/configuration")
+        if not config:
+            return []
+
+        places = config.get("places", [])
+        for place in places:
+            place_id = place.get("id")
+            if not place_id:
+                continue
+
+            for room in place.get("rooms", []):
+                room_info = {
+                    "place_id": place_id,
+                    "room_id": room["id"],
+                    "room_name": room["name"],
+                    "target_temperature": room.get("target_temperature"),
+                    "latest_temperature": room.get("latest_temperature"),
+                    "heaters": []
+                }
+                for heater in room.get("heaters", []):
+                    room_info["heaters"].append({
+                        "id": heater["id"],
+                        "device_unique_id": heater["device_unique_id"],
+                        "name": heater["name"],
+                        "is_offline": heater.get("is_offline", False),
+                        "is_enabled": heater.get("is_enabled", True)
+                    })
+                discovery_data.append(room_info)
+    except Exception as e:
+        sys.stderr.write(f"❌ Error fetching discovery info: {e}\n")
+    return discovery_data
+
+def print_discovery():
+    try:
+        data = get_discovery_info()
+        print(json.dumps(data, indent=2))
+    except Exception as e:
+        sys.stderr.write(f"Error: {e}\n")
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
@@ -323,6 +348,8 @@ if __name__ == "__main__":
             print(get_token())
         elif cmd == "status":
             show_status()
+        elif cmd == "discover":
+            print_discovery()
         elif cmd == "set":
             if len(sys.argv) != 4:
                 print("Usage: python3 beha_auth.py set <room> <temp>")

@@ -12,8 +12,8 @@ services:
   - mqtt:need
 options:
   mqtt_host: "core-mosquitto"
-  mqtt_user: "beha"
-  mqtt_pass: "beha"
+  mqtt_user: ""
+  mqtt_pass: ""
   beha_email: ""
   beha_password: ""
 schema:
