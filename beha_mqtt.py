@@ -273,6 +273,7 @@ def sync():
         try:
             discovery_data = beha_auth.get_discovery_info()
             current_heaters = set()
+            sync_summary = []
 
             for room in discovery_data:
                 rid = room["room_id"]
@@ -332,6 +333,13 @@ def sync():
 
                     if hid not in KNOWN_HEATERS:
                         print(f"🆕 New heater discovered: {h['name']} ({hid})")
+
+                    sync_summary.append(f"  {h['name']:25s} 🌡{current_temp}°C → 🎯{target_temp}°C {'🔴' if is_offline else '🟢'}")
+
+            # ── Log sync summary ──
+            print(f"🔄 Sync complete ({len(current_heaters)} heaters)")
+            for line in sync_summary:
+                print(line)
 
             # ── Remove stale heaters (deleted in Beha app) ──
             removed = KNOWN_HEATERS - current_heaters
