@@ -81,7 +81,7 @@ Or download the ZIP from GitHub and extract it.
 
 ### Step 2: Copy Files to Home Assistant
 
-Use `scp` to transfer the add-on files to your HA instance. Replace `<HA_IP>` with your Home Assistant's IP address (e.g. `192.168.0.3`):
+Use `scp` to transfer the add-on files to your HA instance. Replace `<HA_IP>` with your Home Assistant's IP address (e.g. `homeassistant.local`):
 
 ```bash
 # Create the add-on directory on HA
