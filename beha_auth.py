@@ -236,17 +236,40 @@ def get_token():
 
 
 # ── API ──────────────────────────────────────────────────────────────────────
+API_TIMEOUT   = 10   # seconds
+API_RETRIES   = 3
+API_BACKOFF   = 1.0  # initial backoff in seconds (doubles each retry)
+
 def api(method, path, body=None):
     token = get_token()
     data = json.dumps(body).encode() if body else None
-    req = urllib.request.Request(f"{API_BASE}/{path}", data=data, method=method)
-    req.add_header("Authorization", f"Bearer {token}")
-    req.add_header("Content-Type", "application/json")
-    try:
-        with urllib.request.urlopen(req) as resp:
-            return json.loads(resp.read()) if resp.status != 204 else None
-    except urllib.error.HTTPError as e:
-        raise Exception(f"API Error {e.code}: {e.read().decode()}")
+    last_err = None
+
+    for attempt in range(1, API_RETRIES + 1):
+        req = urllib.request.Request(f"{API_BASE}/{path}", data=data, method=method)
+        req.add_header("Authorization", f"Bearer {token}")
+        req.add_header("Content-Type", "application/json")
+        try:
+            with urllib.request.urlopen(req, timeout=API_TIMEOUT) as resp:
+                return json.loads(resp.read()) if resp.status != 204 else None
+        except urllib.error.HTTPError as e:
+            if e.code >= 500 and attempt < API_RETRIES:
+                wait = API_BACKOFF * (2 ** (attempt - 1))
+                print(f"⚠️ API {e.code} on {method} {path} (attempt {attempt}/{API_RETRIES}), retrying in {wait}s...")
+                time.sleep(wait)
+                last_err = e
+                continue
+            raise Exception(f"API Error {e.code}: {e.read().decode()}")
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            if attempt < API_RETRIES:
+                wait = API_BACKOFF * (2 ** (attempt - 1))
+                print(f"⚠️ API timeout/network error on {method} {path} (attempt {attempt}/{API_RETRIES}), retrying in {wait}s...")
+                time.sleep(wait)
+                last_err = e
+                continue
+            raise Exception(f"API Error after {API_RETRIES} attempts: {e}")
+
+    raise Exception(f"API failed after {API_RETRIES} attempts: {last_err}")
 
 
 def show_status():
