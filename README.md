@@ -221,6 +221,12 @@ GET /api/users/configuration
 
 ---
 
+## Known Limitations
+
+- **Physical dial changes are not reflected in Home Assistant.** If you change the target temperature directly on the heater's physical controls, the Beha cloud API does not report the new target temperature. Only changes made through the Beha app, Home Assistant, or the API are synced. The current (measured) room temperature is always reported correctly regardless of how the target was changed.
+
+---
+
 ## Troubleshooting
 
 | Problem | Solution |
