@@ -14,6 +14,11 @@ Usage:
 
 import sys, os, json, time, hashlib, base64, secrets, webbrowser, urllib.parse, urllib.request, re
 import http.cookiejar
+import threading
+import tempfile
+import math
+from pathlib import Path
+from functools import wraps
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # ── Azure B2C Configuration ─────────────────────────────────────────────────
@@ -32,6 +37,16 @@ TOKEN_URL    = f"{BASE_URL}/oauth2/v2.0/token"
 API_BASE     = "https://behacloud.com/api"
 
 TOKEN_FILE = os.path.expanduser("~/.beha_tokens.json")
+TOKEN_LOCK = threading.RLock()
+
+def token_locked(fn):
+    @wraps(fn)
+    def wrapped(*args, **kwargs):
+        with TOKEN_LOCK:
+            return fn(*args, **kwargs)
+    return wrapped
+
+AUTH_TIMEOUT = 10  # Bound login/token requests as well as normal API requests.
 
 
 # ── PKCE ─────────────────────────────────────────────────────────────────────
@@ -44,12 +59,26 @@ def generate_pkce():
 
 
 # ── Token Storage ────────────────────────────────────────────────────────────
+@token_locked
 def save_tokens(data):
-    data["saved_at"] = int(time.time())
-    with open(TOKEN_FILE, "w") as f:
-        json.dump(data, f, indent=2)
-    os.chmod(TOKEN_FILE, 0o600)
+    # Resolve the add-on's /root -> /data symlink before atomic replacement.
+    target = Path(TOKEN_FILE).resolve()
+    payload = dict(data, saved_at=int(time.time()))
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", dir=target.parent,
+                                         prefix=".beha-tokens-", delete=False) as f:
+            temporary = f.name
+            os.chmod(temporary, 0o600)
+            json.dump(payload, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temporary, target)
+    finally:
+        if temporary and os.path.exists(temporary):
+            os.unlink(temporary)
 
+@token_locked
 def load_tokens():
     if not os.path.exists(TOKEN_FILE):
         return None
@@ -90,7 +119,7 @@ def login_headless(email=None, password=None):
     resp = opener.open(urllib.request.Request(
         f"{AUTH_URL}?{urllib.parse.urlencode(params)}",
         headers={"User-Agent": "Mozilla/5.0"}
-    ))
+    ), timeout=AUTH_TIMEOUT)
     html = resp.read().decode()
     page_url = resp.url
 
@@ -111,7 +140,7 @@ def login_headless(email=None, password=None):
         "X-CSRF-TOKEN": csrf,
         "Referer": page_url,
         "X-Requested-With": "XMLHttpRequest",
-    }))
+    }), timeout=AUTH_TIMEOUT)
     body = resp2.read().decode()
     if '"400"' in body or "error" in body.lower():
         raise Exception(f"Login failed: {body}")
@@ -125,7 +154,7 @@ def login_headless(email=None, password=None):
     opener2 = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj), NoRed())
     auth_code = None
     try:
-        opener2.open(urllib.request.Request(confirmed, headers={"User-Agent": "Mozilla/5.0", "Referer": page_url}))
+        opener2.open(urllib.request.Request(confirmed, headers={"User-Agent": "Mozilla/5.0", "Referer": page_url}), timeout=AUTH_TIMEOUT)
     except urllib.error.HTTPError as e:
         loc = e.headers.get("Location", "")
         if "code=" in loc:
@@ -146,7 +175,7 @@ def login_headless(email=None, password=None):
     resp4 = urllib.request.urlopen(urllib.request.Request(
         TOKEN_URL, data=token_data,
         headers={"Content-Type": "application/x-www-form-urlencoded"}
-    ))
+    ), timeout=AUTH_TIMEOUT)
     tokens = json.loads(resp4.read())
     save_tokens(tokens)
 
@@ -193,7 +222,7 @@ def login_browser():
         "code_verifier": verifier, "scope": SCOPE,
     }).encode()
     resp = urllib.request.urlopen(urllib.request.Request(TOKEN_URL, data=data,
-        headers={"Content-Type": "application/x-www-form-urlencoded"}))
+        headers={"Content-Type": "application/x-www-form-urlencoded"}), timeout=AUTH_TIMEOUT)
     tokens = json.loads(resp.read())
     save_tokens(tokens)
     print(f"✅ Logged in! Token expires in {tokens.get('expires_in', '?')}s")
@@ -201,6 +230,7 @@ def login_browser():
 
 
 # ── Refresh ──────────────────────────────────────────────────────────────────
+@token_locked
 def refresh():
     tokens = load_tokens()
     if not tokens or "refresh_token" not in tokens:
@@ -212,8 +242,9 @@ def refresh():
     }).encode()
     try:
         resp = urllib.request.urlopen(urllib.request.Request(TOKEN_URL, data=data,
-            headers={"Content-Type": "application/x-www-form-urlencoded"}))
+            headers={"Content-Type": "application/x-www-form-urlencoded"}), timeout=AUTH_TIMEOUT)
         new_tokens = json.loads(resp.read())
+        new_tokens.setdefault("refresh_token", tokens["refresh_token"])
         save_tokens(new_tokens)
         print(f"✅ Refreshed! Expires in {new_tokens.get('expires_in', '?')}s")
         return new_tokens["access_token"]
@@ -222,6 +253,7 @@ def refresh():
 
 
 # ── Get Valid Token ──────────────────────────────────────────────────────────
+@token_locked
 def get_token():
     tokens = load_tokens()
     if not tokens:
@@ -241,15 +273,16 @@ API_RETRIES   = 3
 API_BACKOFF   = 1.0  # initial backoff in seconds (doubles each retry)
 
 def api(method, path, body=None):
-    token = get_token()
     data = json.dumps(body).encode() if body else None
     last_err = None
 
     for attempt in range(1, API_RETRIES + 1):
-        req = urllib.request.Request(f"{API_BASE}/{path}", data=data, method=method)
-        req.add_header("Authorization", f"Bearer {token}")
-        req.add_header("Content-Type", "application/json")
         try:
+            # Token refresh can time out too; retry it like the API request.
+            token = get_token()
+            req = urllib.request.Request(f"{API_BASE}/{path}", data=data, method=method)
+            req.add_header("Authorization", f"Bearer {token}")
+            req.add_header("Content-Type", "application/json")
             with urllib.request.urlopen(req, timeout=API_TIMEOUT) as resp:
                 return json.loads(resp.read()) if resp.status != 204 else None
         except urllib.error.HTTPError as e:
@@ -313,40 +346,60 @@ def set_temp(room_name, temp):
 
 # ── Discovery ──────────────────────────────────────────────────────────────────
 def get_discovery_info():
-    """Fetches all places, rooms, and heaters via users/configuration — single API call."""
-    discovery_data = []
-    try:
-        config = api("GET", "users/configuration")
-        if not config:
-            return []
+    """Validate the complete snapshot before it can modify retained MQTT entities.
 
-        places = config.get("places", [])
-        for place in places:
-            place_id = place.get("id")
-            if not place_id:
-                continue
+    Explicit empty lists represent deletion; missing/wrong-shaped lists are errors.
+    Unknown extra fields are allowed for forward compatibility.
+    """
+    def collection(obj, key):
+        if not isinstance(obj, dict) or not isinstance(obj.get(key), list):
+            raise ValueError(f"Invalid cloud configuration: expected {key} list")
+        return obj[key]
 
-            for room in place.get("rooms", []):
-                room_info = {
-                    "place_id": place_id,
-                    "room_id": room["id"],
-                    "room_name": room["name"],
-                    "target_temperature": room.get("target_temperature"),
-                    "latest_temperature": room.get("latest_temperature"),
-                    "heaters": []
-                }
-                for heater in room.get("heaters", []):
-                    room_info["heaters"].append({
-                        "id": heater["id"],
-                        "device_unique_id": heater["device_unique_id"],
-                        "name": heater["name"],
-                        "is_offline": heater.get("is_offline", False),
-                        "is_enabled": heater.get("is_enabled", True)
-                    })
-                discovery_data.append(room_info)
-    except Exception as e:
-        sys.stderr.write(f"❌ Error fetching discovery info: {e}\n")
-    return discovery_data
+    def required(obj, key, kind):
+        if not isinstance(obj, dict) or not isinstance(obj.get(key), kind):
+            raise ValueError(f"Invalid cloud configuration: missing/invalid {key}")
+        value = obj[key]
+        if kind is str and not value.strip():
+            raise ValueError(f"Invalid cloud configuration: empty {key}")
+        return value
+
+    def temperature(obj, key):
+        if key not in obj:
+            raise ValueError(f"Invalid cloud configuration: missing {key}")
+        value = obj[key]
+        if value is not None and (type(value) not in (int, float) or not math.isfinite(value)):
+            raise ValueError(f"Invalid cloud configuration: invalid {key}")
+        return value
+
+    config = api("GET", "users/configuration")
+    result, seen = [], set()
+    for place in collection(config, "places"):
+        place_id = required(place, "id", str)
+        for room in collection(place, "rooms"):
+            info = {
+                "place_id": place_id,
+                "room_id": required(room, "id", str),
+                "room_name": required(room, "name", str),
+                "target_temperature": temperature(room, "target_temperature"),
+                "latest_temperature": temperature(room, "latest_temperature"),
+                "heaters": []
+            }
+            for heater in collection(room, "heaters"):
+                hid = required(heater, "device_unique_id", str)
+                if hid in seen or not re.fullmatch(r"[a-zA-Z0-9_-]+", hid):
+                    raise ValueError("Invalid cloud configuration: duplicate/invalid heater ID")
+                seen.add(hid)
+                info["heaters"].append({
+                    "id": required(heater, "id", str),
+                    "device_unique_id": hid,
+                    "name": required(heater, "name", str),
+                    "is_offline": required(heater, "is_offline", bool),
+                    "is_enabled": required(heater, "is_enabled", bool),
+                    "latest_reading_timestamp": heater.get("latest_reading_timestamp")
+                })
+            result.append(info)
+    return result
 
 def print_discovery():
     try:

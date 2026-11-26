@@ -11,7 +11,8 @@ Requirements:
     pip3 install paho-mqtt
 """
 
-import sys, time, json, argparse, threading
+import sys, time, json, argparse, threading, os, signal
+from datetime import datetime, timezone
 import paho.mqtt.client as mqtt
 import beha_auth  # Uses your existing auth script
 
@@ -19,6 +20,11 @@ import beha_auth  # Uses your existing auth script
 DISCOVERY_PREFIX = "homeassistant"
 TOPIC_PREFIX     = "beha"
 POLL_INTERVAL    = 60
+BRIDGE_VERSION = "1.2.0"
+BRIDGE_TOPIC = f"{TOPIC_PREFIX}/bridge/availability"
+HEALTH_INTERVAL = 10
+STALE_AFTER = 180
+SYNC_DEADLINE = 120
 VERIFY_DELAY     = 5   # Seconds to wait before verification sync after a command
 
 # Global state
@@ -26,21 +32,39 @@ client = None
 stop_event = threading.Event()
 KNOWN_HEATERS = set()  # Track heater MACs for add/remove detection
 sync_lock = threading.Lock()  # Prevent overlapping syncs
+sync_requested = threading.Event()
+progress_lock = threading.Lock()
+last_success = None
+sync_started = None
+mqtt_connected = threading.Event()
 
 def on_connect(client, userdata, flags, rc, properties=None):
+    global last_success
     if rc == 0:
-        print("✅ Connected to MQTT Broker!")
-        # Subscribe to temperature and mode commands
+        print("Connected to MQTT broker; requesting cloud sync")
+        with progress_lock:
+            last_success = None
+        client.publish(BRIDGE_TOPIC, "offline", qos=1, retain=True)
         client.subscribe(f"{TOPIC_PREFIX}/+/set")
         client.subscribe(f"{TOPIC_PREFIX}/+/mode/set")
-        # Publish discovery immediately
-        publish_discovery()
+        client.subscribe(f"{DISCOVERY_PREFIX}/status")
+        mqtt_connected.set()
+        sync_requested.set()  # No cloud I/O on the MQTT callback thread.
     else:
-        print(f"❌ Failed to connect, return code {rc}")
+        print(f"MQTT connection failed: {rc}")
+
+
+def on_disconnect(client, userdata, flags, rc, properties=None):
+    mqtt_connected.clear()
+
 
 def on_message(client, userdata, msg):
     """Handle incoming set temperature and mode commands — dispatches to a worker thread."""
     try:
+        if msg.topic == f"{DISCOVERY_PREFIX}/status":
+            if msg.payload == b"online":
+                sync_requested.set()
+            return
         parts = msg.topic.split("/")
 
         # Temperature command: beha/<mac>/set  payload: <temp>
@@ -163,43 +187,8 @@ def get_last_known_state(mac_address):
 
 
 def verification_sync(mac_address, field, expected_value):
-    """After a command, re-read from the cloud and verify the value was applied."""
-    print(f"🔍 Verification sync for {mac_address} ({field}={expected_value})...")
-    try:
-        with sync_lock:
-            discovery_data = beha_auth.get_discovery_info()
-            for room in discovery_data:
-                for h in room["heaters"]:
-                    hid = h["device_unique_id"]
-                    if hid == mac_address:
-                        actual_temp = room.get("target_temperature")
-                        actual_mode = "heat" if (h.get("is_enabled", True) and not h.get("is_offline", False)) else "off"
-
-                        if field == "temp":
-                            if actual_temp == expected_value:
-                                print(f"✅ Verified: {mac_address} temp confirmed at {expected_value}°C")
-                            else:
-                                print(f"⚠️ Verification mismatch: cloud reports {actual_temp}°C, expected {expected_value}°C")
-                        elif field == "mode":
-                            if actual_mode == expected_value:
-                                print(f"✅ Verified: {mac_address} mode confirmed as '{expected_value}'")
-                            else:
-                                print(f"⚠️ Verification mismatch: cloud reports '{actual_mode}', expected '{expected_value}'")
-
-                        # Either way, publish the real cloud state
-                        state_payload = {
-                            "current_temperature": room.get("latest_temperature"),
-                            "target_temperature": actual_temp,
-                            "mode": actual_mode
-                        }
-                        _state_cache[hid] = state_payload
-                        client.publish(f"{TOPIC_PREFIX}/{hid}/state",
-                                       json.dumps(state_payload), retain=True)
-                        return
-
-        print(f"⚠️ Verification: heater {mac_address} not found in cloud data")
-    except Exception as e:
-        print(f"❌ Verification sync error: {e}")
+    # Coalesce verification with regular polling on the one cloud sync worker.
+    sync_requested.set()
 
 
 def find_room_for_heater(mac):
@@ -209,189 +198,172 @@ def find_room_for_heater(mac):
 # Maps heater MAC -> (room_id, place_id, heater_id)
 HEATER_TO_ROOM = {}
 
-def publish_discovery():
-    """Publishes HA Auto-Discovery payloads for all known heaters"""
-    print("📤 Publishing Home Assistant Auto-Discovery config...")
+def publish_config(component, object_id, payload):
+    client.publish(f"{DISCOVERY_PREFIX}/{component}/{object_id}/config",
+                   json.dumps(payload), retain=True)
+
+
+def publish_bridge_discovery():
+    device = {"identifiers": ["beha_bridge"], "name": "BEHA Bridge",
+              "manufacturer": "BEHA", "model": "Cloud MQTT Bridge",
+              "sw_version": BRIDGE_VERSION}
+    publish_config("binary_sensor", "beha_bridge_health", {
+        "name": "Health", "unique_id": "beha_bridge_health", "device": device,
+        "device_class": "connectivity", "entity_category": "diagnostic",
+        "state_topic": BRIDGE_TOPIC, "payload_on": "online", "payload_off": "offline",
+        "expire_after": HEALTH_INTERVAL * 3})
+    publish_config("sensor", "beha_bridge_last_sync", {
+        "name": "Last successful sync", "unique_id": "beha_bridge_last_sync",
+        "device": device, "device_class": "timestamp", "entity_category": "diagnostic",
+        "state_topic": f"{TOPIC_PREFIX}/bridge/last_sync"})
+
+
+def publish_heater_discovery(room, heater):
+    hid = heater["device_unique_id"]
+    device = {"identifiers": [f"beha_{hid}"],
+              "name": f"{heater['name']} ({room['room_name']})",
+              "manufacturer": "BEHA", "model": "SmartHeater"}
+    payload = {
+        "name": None, "unique_id": f"beha_{hid}_climate", "device": device,
+        "temperature_unit": "C", "min_temp": 5, "max_temp": 30,
+        "temp_step": 0.5, "modes": ["heat", "off"],
+        "current_temperature_topic": f"{TOPIC_PREFIX}/{hid}/state",
+        "current_temperature_template": "{{ value_json.current_temperature }}",
+        "temperature_command_topic": f"{TOPIC_PREFIX}/{hid}/set",
+        "mode_command_topic": f"{TOPIC_PREFIX}/{hid}/mode/set",
+        "mode_state_topic": f"{TOPIC_PREFIX}/{hid}/state",
+        "mode_state_template": "{{ value_json.mode }}",
+        "temperature_state_topic": f"{TOPIC_PREFIX}/{hid}/state",
+        "temperature_state_template": "{{ value_json.target_temperature }}",
+        "availability": [{"topic": BRIDGE_TOPIC},
+                         {"topic": f"{TOPIC_PREFIX}/{hid}/availability"}],
+        "availability_mode": "all"
+    }
+    publish_config("climate", f"beha_{hid}", payload)
+    # Keep the last reading visible even when the heater or bridge is offline.
+    # A timestamp lets HA calculate age continuously without a running bridge.
+    publish_config("sensor", f"beha_{hid}_last_reading", {
+        "name": "Last reading", "unique_id": f"beha_{hid}_last_reading",
+        "device": device, "device_class": "timestamp", "entity_category": "diagnostic",
+        "state_topic": f"{TOPIC_PREFIX}/{hid}/last_reading"})
+
+
+def reading_timestamp(value):
+    if not isinstance(value, str):
+        return "None"  # HA's timestamp sensor reset payload.
     try:
-        discovery_data = beha_auth.get_discovery_info()
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        # BEHA returns naive UTC timestamps, as used by its cloud backend.
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc).isoformat()
+    except ValueError:
+        return "None"
 
-        for room in discovery_data:
-            rid = room["room_id"]
-            pid = room["place_id"]
-            name = room["room_name"]
 
-            for h in room["heaters"]:
-                hid = h["device_unique_id"]  # e.g. f412fa5adefc
-                HEATER_TO_ROOM[hid] = (rid, pid, h["id"])
+def publish_health(now=None):
+    now = time.monotonic() if now is None else now
+    with progress_lock:
+        healthy = last_success is not None and now - last_success < STALE_AFTER
+        stalled = sync_started is not None and now - sync_started > SYNC_DEADLINE
+    if mqtt_connected.is_set():
+        client.publish(BRIDGE_TOPIC, "online" if healthy and not stalled else "offline",
+                       qos=1, retain=True)
+    return stalled
 
-                # Device Info
-                device_info = {
-                    "identifiers": [f"beha_{hid}"],
-                    "name": f"{h['name']} ({name})",
-                    "manufacturer": "BEHA",
-                    "model": "SmartHeater Gen1",
-                    "sw_version": "1.0"
-                }
 
-                # Climate Entity Config
-                payload = {
-                    "name": None,  # Use device name
-                    "unique_id": f"beha_{hid}_climate",
-                    "device": device_info,
-                    "temperature_unit": "C",
-                    "min_temp": 5,
-                    "max_temp": 30,
-                    "temp_step": 0.5,
-                    "modes": ["heat", "off"],
+def health_watchdog():
+    while not stop_event.wait(HEALTH_INTERVAL):
+        if publish_health():
+            print("Cloud sync exceeded 120 seconds; exiting for Supervisor restart", flush=True)
+            # A stuck Python worker cannot be safely killed. LWT covers abrupt exit;
+            # the add-on watchdog restarts the process. run.sh uses exec.
+            os._exit(1)
 
-                    "current_temperature_topic": f"{TOPIC_PREFIX}/{hid}/state",
-                    "current_temperature_template": "{{ value_json.current_temperature }}",
-
-                    "temperature_command_topic": f"{TOPIC_PREFIX}/{hid}/set",
-
-                    "mode_command_topic": f"{TOPIC_PREFIX}/{hid}/mode/set",
-                    "mode_state_topic": f"{TOPIC_PREFIX}/{hid}/state",
-                    "mode_state_template": "{{ value_json.mode }}",
-
-                    "temperature_state_topic": f"{TOPIC_PREFIX}/{hid}/state",
-                    "temperature_state_template": "{{ value_json.target_temperature }}",
-
-                    "availability_topic": f"{TOPIC_PREFIX}/{hid}/availability"
-                }
-
-                topic = f"{DISCOVERY_PREFIX}/climate/beha_{hid}/config"
-                client.publish(topic, json.dumps(payload), retain=True)
-                print(f"   Published discovery for {h['name']}")
-
-    except Exception as e:
-        print(f"❌ Error in discovery: {e}")
 
 def sync():
-    """Full sync: re-publish discovery (handles adds/renames), update state, remove stale entities."""
-    global KNOWN_HEATERS
+    """Fetch/validate the whole snapshot before publishing or deleting entities."""
+    global KNOWN_HEATERS, last_success, sync_started
     with sync_lock:
+        with progress_lock:
+            sync_started = time.monotonic()
         try:
             discovery_data = beha_auth.get_discovery_info()
+            publish_bridge_discovery()
             current_heaters = set()
-            sync_summary = []
-
             for room in discovery_data:
-                rid = room["room_id"]
-                pid = room["place_id"]
-                name = room["room_name"]
-                target_temp = room["target_temperature"]
-                current_temp = room.get("latest_temperature")
-
                 for h in room["heaters"]:
                     hid = h["device_unique_id"]
                     current_heaters.add(hid)
-                    HEATER_TO_ROOM[hid] = (rid, pid, h["id"])
-
-                    # ── Discovery (re-publish every cycle for renames / new devices) ──
-                    device_info = {
-                        "identifiers": [f"beha_{hid}"],
-                        "name": f"{h['name']} ({name})",
-                        "manufacturer": "BEHA",
-                        "model": "SmartHeater Gen1",
-                        "sw_version": "1.0"
-                    }
-                    payload = {
-                        "name": None,
-                        "unique_id": f"beha_{hid}_climate",
-                        "device": device_info,
-                        "temperature_unit": "C",
-                        "min_temp": 5,
-                        "max_temp": 30,
-                        "temp_step": 0.5,
-                        "modes": ["heat", "off"],
-                        "current_temperature_topic": f"{TOPIC_PREFIX}/{hid}/state",
-                        "current_temperature_template": "{{ value_json.current_temperature }}",
-                        "temperature_command_topic": f"{TOPIC_PREFIX}/{hid}/set",
-                        "mode_command_topic": f"{TOPIC_PREFIX}/{hid}/mode/set",
-                        "mode_state_topic": f"{TOPIC_PREFIX}/{hid}/state",
-                        "mode_state_template": "{{ value_json.mode }}",
-                        "temperature_state_topic": f"{TOPIC_PREFIX}/{hid}/state",
-                        "temperature_state_template": "{{ value_json.target_temperature }}",
-                        "availability_topic": f"{TOPIC_PREFIX}/{hid}/availability"
-                    }
-                    client.publish(f"{DISCOVERY_PREFIX}/climate/beha_{hid}/config",
-                                   json.dumps(payload), retain=True)
-
-                    # ── State ──
-                    is_offline = h.get("is_offline", False)
-                    is_enabled = h.get("is_enabled", True)
-                    state_payload = {
-                        "current_temperature": current_temp,
-                        "target_temperature": target_temp,
-                        "mode": "heat" if (is_enabled and not is_offline) else "off"
-                    }
-                    _state_cache[hid] = state_payload  # Update cache for optimistic updates
+                    HEATER_TO_ROOM[hid] = (room["room_id"], room["place_id"], h["id"])
+                    publish_heater_discovery(room, h)
+                    state = {"current_temperature": room.get("latest_temperature"),
+                             "target_temperature": room["target_temperature"],
+                             "mode": "heat" if h.get("is_enabled", True) else "off"}
+                    _state_cache[hid] = state
                     client.publish(f"{TOPIC_PREFIX}/{hid}/availability",
-                                   "offline" if is_offline else "online", retain=True)
-                    client.publish(f"{TOPIC_PREFIX}/{hid}/state",
-                                   json.dumps(state_payload), retain=True)
+                                   "offline" if h.get("is_offline", False) else "online", retain=True)
+                    client.publish(f"{TOPIC_PREFIX}/{hid}/state", json.dumps(state), retain=True)
+                    client.publish(f"{TOPIC_PREFIX}/{hid}/last_reading",
+                                   reading_timestamp(h.get("latest_reading_timestamp")), retain=True)
 
-                    if hid not in KNOWN_HEATERS:
-                        print(f"🆕 New heater discovered: {h['name']} ({hid})")
-
-                    sync_summary.append(f"  {h['name']:25s} 🌡{current_temp}°C → 🎯{target_temp}°C {'🔴' if is_offline else '🟢'}")
-
-            # ── Log sync summary ──
-            print(f"🔄 Sync complete ({len(current_heaters)} heaters)")
-            for line in sync_summary:
-                print(line)
-
-            # ── Remove stale heaters (deleted in Beha app) ──
-            removed = KNOWN_HEATERS - current_heaters
-            for hid in removed:
-                print(f"🗑️  Heater {hid} removed — clearing from HA")
-                # Empty retained payload removes entity from HA
-                client.publish(f"{DISCOVERY_PREFIX}/climate/beha_{hid}/config", "", retain=True)
-                client.publish(f"{TOPIC_PREFIX}/{hid}/state", "", retain=True)
-                client.publish(f"{TOPIC_PREFIX}/{hid}/availability", "", retain=True)
+            for hid in KNOWN_HEATERS - current_heaters:
+                for component, object_id in [("climate", f"beha_{hid}"),
+                                             ("sensor", f"beha_{hid}_last_reading")]:
+                    client.publish(f"{DISCOVERY_PREFIX}/{component}/{object_id}/config", "", retain=True)
+                for suffix in ("state", "availability", "last_reading"):
+                    client.publish(f"{TOPIC_PREFIX}/{hid}/{suffix}", "", retain=True)
                 HEATER_TO_ROOM.pop(hid, None)
                 _state_cache.pop(hid, None)
-
             KNOWN_HEATERS = current_heaters
-
+            client.publish(f"{TOPIC_PREFIX}/bridge/last_sync",
+                           datetime.now(timezone.utc).isoformat(), retain=True)
+            with progress_lock:
+                last_success = time.monotonic()
+            publish_health()
+            print(f"Sync complete ({len(current_heaters)} heaters)")
+            return True
         except Exception as e:
-            print(f"❌ Error in sync: {e}")
+            print(f"Error in sync: {e}")
+            return False
+        finally:
+            with progress_lock:
+                sync_started = None
+
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--host", default="homeassistant", help="MQTT Broker Host")
-    parser.add_argument("--port", type=int, default=1883, help="MQTT Broker Port")
-    parser.add_argument("--user", help="MQTT Username")
-    parser.add_argument("--passw", help="MQTT Password")
+    parser.add_argument("--host", default="homeassistant")
+    parser.add_argument("--port", type=int, default=1883)
+    parser.add_argument("--user")
+    parser.add_argument("--passw")
     args = parser.parse_args()
-
     global client
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     if args.user:
         client.username_pw_set(args.user, args.passw)
-
+    client.will_set(BRIDGE_TOPIC, "offline", qos=1, retain=True)
     client.on_connect = on_connect
+    client.on_disconnect = on_disconnect
     client.on_message = on_message
-
-    print(f"🔌 Connecting to MQTT Broker at {args.host}:{args.port}...")
-    try:
-        client.connect(args.host, args.port, 60)
-    except Exception as e:
-        print(f"❌ Connection failed: {e}")
-        sys.exit(1)
-
-    # Start MQTT loop in background
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(sig, lambda *_: (stop_event.set(), sync_requested.set()))
+    client.connect(args.host, args.port, 30)
     client.loop_start()
-
-    # Main polling loop
+    threading.Thread(target=health_watchdog, name="health-watchdog", daemon=True).start()
     try:
-        while True:
-            sync()
-            time.sleep(POLL_INTERVAL)
-    except KeyboardInterrupt:
-        print("\n👋 Stopping...")
+        while not stop_event.is_set():
+            sync_requested.wait(POLL_INTERVAL)
+            sync_requested.clear()
+            if not stop_event.is_set() and mqtt_connected.is_set():
+                sync()
+    finally:
+        stop_event.set()
+        if client.is_connected():
+            client.publish(BRIDGE_TOPIC, "offline", qos=1, retain=True).wait_for_publish(timeout=2)
+        client.disconnect()
         client.loop_stop()
-        sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

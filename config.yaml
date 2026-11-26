@@ -1,5 +1,5 @@
 name: "BEHA SmartHeater Bridge"
-version: "1.0"
+version: "1.2.0"
 slug: "beha_bridge"
 description: "Control BEHA heaters via Home Assistant"
 init: false

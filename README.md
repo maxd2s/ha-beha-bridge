@@ -136,17 +136,13 @@ scp beha_auth.py beha_mqtt.py run.sh config.yaml build.yaml Dockerfile \
 2. Go to the **Log** tab — you should see:
 
 ```
-✅ Connected to MQTT Broker!
-📤 Publishing Home Assistant Auto-Discovery config...
-   Published discovery for heater near balkon
-   Published discovery for guest room heater
-   ...
-🆕 New heater discovered: heater near balkon (f412fa5a3f28)
+Connected to MQTT broker; requesting cloud sync
+Sync complete (5 heaters)
 ```
 
 3. Your heaters should now appear under **Settings → Devices & Services → MQTT → devices**
 
-### Step 7: (Optional) Enable Start on Boot
+### Step 7: Enable Automatic Recovery
 
 1. Go to the **Info** tab of the add-on
 2. Enable **"Start on boot"**
@@ -164,6 +160,36 @@ scp beha_auth.py beha_mqtt.py run.sh config.yaml build.yaml Dockerfile \
 > **MQTT connection** is fully automatic — credentials are discovered from the Mosquitto add-on via the HA Supervisor API. No MQTT configuration needed.
 
 ---
+
+## Bridge Health and Reading Age
+
+Version 1.2.0 publishes a bridge connectivity sensor, the last successful sync,
+and a last-reading timestamp for every heater. The Heaters dashboard configuration
+is in `ha/heaters-dashboard.json` (entity IDs are specific to this installation).
+Reading age is calculated by Home Assistant from the timestamp, so it keeps aging
+even when the bridge is stopped. BEHA timestamps without an offset are interpreted
+as UTC and displayed in Home Assistant's local timezone. A missing or invalid
+reading timestamp displays as unknown; polling never substitutes the current time.
+
+- A retained MQTT last will marks the bridge offline if its connection is lost.
+- A heartbeat is published every 10 seconds. The health sensor expires after 30
+  seconds without a heartbeat, and heaters require both bridge and heater availability.
+- After 180 seconds without a validated cloud sync, the bridge reports offline.
+- An independent watchdog exits the process if a sync exceeds 120 seconds.
+  Keep the add-on's **Watchdog** enabled so Supervisor restarts it automatically.
+- Failed or malformed cloud snapshots preserve existing entities and readings.
+  Explicit, valid empty lists still allow removed heaters to be deleted.
+- Token refresh is serialized within the bridge process. Token files are replaced
+  atomically with mode 0600, preserving the persistent `/data` symlink target.
+
+Cloud connectivity does not establish that a temperature reading is recent.
+The dashboard shows connection status and reading age separately.
+
+Run the reliability tests with Python and `paho-mqtt` installed:
+
+```bash
+python3 -m unittest discover -s tests -v
+```
 
 ## Dynamic Device Sync
 

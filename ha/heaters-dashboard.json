@@ -1,0 +1,176 @@
+{
+  "title": "Heaters",
+  "views": [
+    {
+      "title": "Heaters",
+      "path": "overview",
+      "type": "sections",
+      "max_columns": 3,
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Bridge health",
+              "icon": "mdi:lan-connect"
+            },
+            {
+              "type": "entities",
+              "show_header_toggle": false,
+              "entities": [
+                {
+                  "entity": "binary_sensor.beha_bridge_health",
+                  "name": "Bridge connection"
+                },
+                {
+                  "entity": "sensor.beha_bridge_last_successful_sync",
+                  "name": "Last successful sync"
+                }
+              ]
+            },
+            {
+              "type": "markdown",
+              "content": "The bridge polls BEHA every minute. **Reading age** shows when each heater last reported to the cloud; a connected heater can still have an older reading."
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "thermostat",
+              "entity": "climate.heater_office_office",
+              "name": "Office",
+              "show_current_as_primary": true,
+              "features": [
+                {
+                  "type": "climate-hvac-modes",
+                  "hvac_modes": [
+                    "heat",
+                    "off"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "markdown",
+              "content": "{% set stamp = states('sensor.heater_office_r_office_last_reading') %}\n{% if stamp not in ['unknown', 'unavailable', 'None', ''] %}\n{% set minutes = ([0, (as_timestamp(now()) - as_timestamp(stamp)) / 60] | max) | int %}\n**Reading age:** {% if minutes < 1 %}less than a minute{% elif minutes < 60 %}{{ minutes }} min{% elif minutes < 1440 %}{{ minutes // 60 }} h {{ minutes % 60 }} min{% else %}{{ minutes // 1440 }} d {{ (minutes % 1440) // 60 }} h{% endif %}\n\nLast reported {{ as_local(as_datetime(stamp)).strftime('%d %b, %H:%M') }}\n{% else %}\n**Reading age:** Unknown \u2014 no timestamp reported\n{% endif %}",
+              "entity_id": [
+                "sensor.heater_office_r_office_last_reading"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "thermostat",
+              "entity": "climate.heater_master_bed_master_bed",
+              "name": "Master Bedroom",
+              "show_current_as_primary": true,
+              "features": [
+                {
+                  "type": "climate-hvac-modes",
+                  "hvac_modes": [
+                    "heat",
+                    "off"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "markdown",
+              "content": "{% set stamp = states('sensor.heater_master_bed_r_master_bed_last_reading') %}\n{% if stamp not in ['unknown', 'unavailable', 'None', ''] %}\n{% set minutes = ([0, (as_timestamp(now()) - as_timestamp(stamp)) / 60] | max) | int %}\n**Reading age:** {% if minutes < 1 %}less than a minute{% elif minutes < 60 %}{{ minutes }} min{% elif minutes < 1440 %}{{ minutes // 60 }} h {{ minutes % 60 }} min{% else %}{{ minutes // 1440 }} d {{ (minutes % 1440) // 60 }} h{% endif %}\n\nLast reported {{ as_local(as_datetime(stamp)).strftime('%d %b, %H:%M') }}\n{% else %}\n**Reading age:** Unknown \u2014 no timestamp reported\n{% endif %}",
+              "entity_id": [
+                "sensor.heater_master_bed_r_master_bed_last_reading"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "thermostat",
+              "entity": "climate.heater_near_balkon_guest_room",
+              "name": "Living Room Balcony",
+              "show_current_as_primary": true,
+              "features": [
+                {
+                  "type": "climate-hvac-modes",
+                  "hvac_modes": [
+                    "heat",
+                    "off"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "markdown",
+              "content": "{% set stamp = states('sensor.heater_near_balkon_r_leavingroom_balkon_last_reading') %}\n{% if stamp not in ['unknown', 'unavailable', 'None', ''] %}\n{% set minutes = ([0, (as_timestamp(now()) - as_timestamp(stamp)) / 60] | max) | int %}\n**Reading age:** {% if minutes < 1 %}less than a minute{% elif minutes < 60 %}{{ minutes }} min{% elif minutes < 1440 %}{{ minutes // 60 }} h {{ minutes % 60 }} min{% else %}{{ minutes // 1440 }} d {{ (minutes % 1440) // 60 }} h{% endif %}\n\nLast reported {{ as_local(as_datetime(stamp)).strftime('%d %b, %H:%M') }}\n{% else %}\n**Reading age:** Unknown \u2014 no timestamp reported\n{% endif %}",
+              "entity_id": [
+                "sensor.heater_near_balkon_r_leavingroom_balkon_last_reading"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "thermostat",
+              "entity": "climate.leaving_room_sofa_leavingroom",
+              "name": "Living Room Sofa",
+              "show_current_as_primary": true,
+              "features": [
+                {
+                  "type": "climate-hvac-modes",
+                  "hvac_modes": [
+                    "heat",
+                    "off"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "markdown",
+              "content": "{% set stamp = states('sensor.leaving_room_sofa_r_leavingroom_last_reading') %}\n{% if stamp not in ['unknown', 'unavailable', 'None', ''] %}\n{% set minutes = ([0, (as_timestamp(now()) - as_timestamp(stamp)) / 60] | max) | int %}\n**Reading age:** {% if minutes < 1 %}less than a minute{% elif minutes < 60 %}{{ minutes }} min{% elif minutes < 1440 %}{{ minutes // 60 }} h {{ minutes % 60 }} min{% else %}{{ minutes // 1440 }} d {{ (minutes % 1440) // 60 }} h{% endif %}\n\nLast reported {{ as_local(as_datetime(stamp)).strftime('%d %b, %H:%M') }}\n{% else %}\n**Reading age:** Unknown \u2014 no timestamp reported\n{% endif %}",
+              "entity_id": [
+                "sensor.leaving_room_sofa_r_leavingroom_last_reading"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "thermostat",
+              "entity": "climate.guest_room_heater_kitchen",
+              "name": "Guest Room",
+              "show_current_as_primary": true,
+              "features": [
+                {
+                  "type": "climate-hvac-modes",
+                  "hvac_modes": [
+                    "heat",
+                    "off"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "markdown",
+              "content": "{% set stamp = states('sensor.guest_room_heater_r_guest_room_last_reading') %}\n{% if stamp not in ['unknown', 'unavailable', 'None', ''] %}\n{% set minutes = ([0, (as_timestamp(now()) - as_timestamp(stamp)) / 60] | max) | int %}\n**Reading age:** {% if minutes < 1 %}less than a minute{% elif minutes < 60 %}{{ minutes }} min{% elif minutes < 1440 %}{{ minutes // 60 }} h {{ minutes % 60 }} min{% else %}{{ minutes // 1440 }} d {{ (minutes % 1440) // 60 }} h{% endif %}\n\nLast reported {{ as_local(as_datetime(stamp)).strftime('%d %b, %H:%M') }}\n{% else %}\n**Reading age:** Unknown \u2014 no timestamp reported\n{% endif %}",
+              "entity_id": [
+                "sensor.guest_room_heater_r_guest_room_last_reading"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
