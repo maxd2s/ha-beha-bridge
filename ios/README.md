@@ -14,8 +14,12 @@ can stay unchanged. This is an unofficial community tool.
   wrong-device MQTT telemetry.
 - Both simulator and signed iPhone builds compile with Xcode 26.2.
 - The native MQTT client has received live telemetry from a real migrated heater.
-- **The iPhone Bluetooth migration itself still requires a real-device test.**
-  Simulator Bluetooth is unavailable. Other firmware is inspect-only until tested.
+- Three additional heaters have completed iPhone migration with version 0.1.4,
+  and all three are sending fresh readings to Home Assistant. Pairing required
+  retries/restarts; the earlier SMP timeout remains a known failure mode.
+- Firmware 2.2 is enabled in 0.1.5 based on analysis of its broker override handler,
+  persistent storage and local MQTT path. Its first live migration is pending.
+  Other firmware remains inspect-only. Simulator Bluetooth is unavailable.
 
 ## Build and install
 
@@ -127,7 +131,7 @@ small read-only MQTT 3.1.1 client using Network.framework. It uses only public i
 APIs; the private macOS pairing API from the Python experiment is not used.
 Endpoint names are resolved from GATT User Description descriptors (0x2901),
 matching the working Python provisioner. Missing or ambiguous names stop setup;
-there is no guessed UUID fallback. Firmware 2.3 is checked before settings writes.
+there is no guessed UUID fallback. Firmware 2.2 or 2.3 is checked before settings writes.
 MQTT credentials are used for a clean, uniquely named observer connection; the
 observer never takes the heater's MQTT client ID.
 
@@ -153,3 +157,13 @@ No pairing dialog appeared and no protocol/configuration write was sent. A
 "Connected" label therefore does not prove that pairing or encryption succeeded.
 The log establishes where pairing stopped, not why the handshake timed out.
 The app cannot inspect or delete iOS pairing records.
+
+Version 0.1.5 permits the exact Gen 2 version 2.2 (including BEHA's space before
+the version number). An actual 2.2 heater passed encrypted access, provisioning
+session and full identity checks; the previous 2.3-only gate stopped it before
+settings writes. Static analysis of the 2.2 image confirms the same
+`iothub_override` acknowledgement and persistent local MQTT path. The existing
+identity checks, broker acknowledgement, Wi-Fi apply and fresh-telemetry checks
+remain mandatory. The review screen distinguishes this initial 2.2 validation
+from proven 2.3 migrations. Diagnostics now include a strictly numeric firmware
+label; arbitrary endpoint text and credentials are not recorded.

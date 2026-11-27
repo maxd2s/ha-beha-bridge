@@ -90,6 +90,10 @@ struct SetupView: View {
                         LabeledContent("Heater", value: model.selectedName.isEmpty ? identity.deviceID.uppercased() : model.selectedName)
                         LabeledContent("Verified ID", value: identity.deviceID.uppercased())
                         LabeledContent("Firmware", value: identity.firmware)
+                        if identity.requiresFirstLiveValidation {
+                            Text("Firmware 2.2 compatibility is based on firmware analysis. This version still needs its first live migration check; success requires fresh MQTT readings.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
                         LabeledContent("Wi-Fi", value: model.profile.ssid)
                         if let broker = try? BrokerAddress(model.profile.brokerURI) {
                             LabeledContent("Local broker", value: "\(broker.host):\(broker.port)")
