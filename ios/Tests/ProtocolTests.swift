@@ -2,6 +2,14 @@ import XCTest
 @testable import BehaSetupCore
 
 final class ProtocolTests: XCTestCase {
+    func testFirmwareLabelMatchesActualOfficeResponseWithoutAcceptingOtherVersions() {
+        for version in ["smartheater-mk2- 2.3", "smartheater-mk2-2.3"] {
+            XCTAssertTrue(HeaterIdentity(deviceID: "aabbccddeeff", firmware: version).supported)
+        }
+        for version in ["smartheater-mk2- 2.2", "smartheater-mk2-2.30", "smartheater-mk2-2.3-beta", "smartheater-mk1-2.3", "2.3"] {
+            XCTAssertFalse(HeaterIdentity(deviceID: "aabbccddeeff", firmware: version).supported)
+        }
+    }
     func testAdvertisedEndpointNamesOverrideSwappedUUIDOffsets() throws {
         var mapping = EndpointMap()
         // A session request sent to a guessed config endpoint can look like a

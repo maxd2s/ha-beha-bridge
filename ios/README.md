@@ -135,3 +135,7 @@ Version 0.1.2 corrects the original port's fixed endpoint UUID lookup. A real
 iPhone report showed successful GATT I/O followed by an invalid session response
 before any settings writes. The descriptor mapping and its resolved UUIDs are now
 included in diagnostics, and swapped/missing/duplicate mappings have regression tests.
+
+Version 0.1.3 also accepts BEHA's actual firmware label `smartheater-mk2- 2.3`
+(a space precedes the version), as captured from Office. The version gate still
+rejects other firmware versions and prerelease suffixes.

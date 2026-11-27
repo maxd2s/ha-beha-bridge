@@ -73,7 +73,11 @@ enum Wire {
 struct HeaterIdentity: Equatable {
     let deviceID: String
     let firmware: String
-    var supported: Bool { firmware == "smartheater-mk2-2.3" }
+    var supported: Bool {
+        let prefix = "smartheater-mk2-"
+        guard firmware.hasPrefix(prefix) else { return false }
+        return firmware.dropFirst(prefix.count).trimmingCharacters(in: .whitespacesAndNewlines) == "2.3"
+    }
 }
 
 @MainActor final class ProvisioningSession {
