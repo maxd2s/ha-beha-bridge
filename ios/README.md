@@ -146,5 +146,10 @@ discarded: ESP-IDF may return an empty or previous response, which is not identi
 verification. Failure stops setup without retrying writes, and diagnostics name
 the `pairing_read` operation. This follows Apple's documented encrypted-read
 pairing mechanism and the read probe used by the Mac provisioner; recovery from
-the observed iPhone ATT error 15 is **not yet verified on hardware**. The app
-cannot inspect or delete iOS pairing records.
+the observed iPhone ATT error 15 **did not succeed in the first hardware test**.
+The iPhone's system log showed an unpaired BLE connection, automatic pairing
+triggered by the encrypted read, then an SMP handshake timeout after 30 seconds.
+No pairing dialog appeared and no protocol/configuration write was sent. A
+"Connected" label therefore does not prove that pairing or encryption succeeded.
+The log establishes where pairing stopped, not why the handshake timed out.
+The app cannot inspect or delete iOS pairing records.
