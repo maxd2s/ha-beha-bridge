@@ -15,13 +15,10 @@ def dashboard(options):
         hid = heater['device_id'].lower().replace(':', '').replace('-', '')
         if not re.fullmatch('[0-9a-f]{12}', hid):
             raise ValueError('Invalid device ID')
-        sections.append({"type": "grid", "cards": [{"type": "vertical-stack", "cards": [
-            {"type": "thermostat", "entity": f"climate.beha_lan_{hid}",
-             "name": heater.get('name') or f'BEHA {hid[-6:]}', "show_current_as_primary": True,
-             "features": [{"type": "climate-hvac-modes", "hvac_modes": ["off", "heat"]}]},
-            {"type": "entities", "show_header_toggle": False, "entities": [
-                {"entity": f"switch.beha_lan_{hid}_child_lock", "name": "Child lock"},
-                {"entity": f"select.beha_lan_{hid}_heater_mode", "name": "Control mode"}]}]}]})
+        sections.append({"type": "grid", "cards": [
+            {"type": "custom:beha-thermostat-card", "entity": f"climate.beha_lan_{hid}",
+             "name": heater.get('name') or f'BEHA {hid[-6:]}',
+             "child_lock_entity": f"switch.beha_lan_{hid}_child_lock"}]})
     return {"title": "Heaters", "views": [{"title": "Heaters", "path": "overview",
              "type": "sections", "max_columns": 3, "sections": sections}]}
 

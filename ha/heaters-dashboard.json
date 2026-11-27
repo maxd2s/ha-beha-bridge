@@ -31,38 +31,10 @@
           "type": "grid",
           "cards": [
             {
-              "type": "vertical-stack",
-              "cards": [
-                {
-                  "type": "thermostat",
-                  "entity": "climate.beha_lan_001122334455",
-                  "name": "Study",
-                  "show_current_as_primary": true,
-                  "features": [
-                    {
-                      "type": "climate-hvac-modes",
-                      "hvac_modes": [
-                        "off",
-                        "heat"
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "entities",
-                  "show_header_toggle": false,
-                  "entities": [
-                    {
-                      "entity": "switch.beha_lan_001122334455_child_lock",
-                      "name": "Child lock"
-                    },
-                    {
-                      "entity": "select.beha_lan_001122334455_heater_mode",
-                      "name": "Control mode"
-                    }
-                  ]
-                }
-              ]
+              "type": "custom:beha-thermostat-card",
+              "entity": "climate.beha_lan_001122334455",
+              "name": "Study",
+              "child_lock_entity": "switch.beha_lan_001122334455_child_lock"
             }
           ]
         },
@@ -70,38 +42,10 @@
           "type": "grid",
           "cards": [
             {
-              "type": "vertical-stack",
-              "cards": [
-                {
-                  "type": "thermostat",
-                  "entity": "climate.beha_lan_aabbccddeeff",
-                  "name": "Bedroom",
-                  "show_current_as_primary": true,
-                  "features": [
-                    {
-                      "type": "climate-hvac-modes",
-                      "hvac_modes": [
-                        "off",
-                        "heat"
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "entities",
-                  "show_header_toggle": false,
-                  "entities": [
-                    {
-                      "entity": "switch.beha_lan_aabbccddeeff_child_lock",
-                      "name": "Child lock"
-                    },
-                    {
-                      "entity": "select.beha_lan_aabbccddeeff_heater_mode",
-                      "name": "Control mode"
-                    }
-                  ]
-                }
-              ]
+              "type": "custom:beha-thermostat-card",
+              "entity": "climate.beha_lan_aabbccddeeff",
+              "name": "Bedroom",
+              "child_lock_entity": "switch.beha_lan_aabbccddeeff_child_lock"
             }
           ]
         }

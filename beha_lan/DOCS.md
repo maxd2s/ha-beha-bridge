@@ -72,6 +72,14 @@ command is lost, the displayed target stays unchanged and you can retry.
 
 ## Dashboard
 
+For the thermostat with child lock inside its dial, copy
+[`ha/beha-thermostat-card.js`](../ha/beha-thermostat-card.js) to HA's
+`www/beha-thermostat-card.js` and register `/local/beha-thermostat-card.js?v=1`
+as a JavaScript module under Dashboard resources. Reload your browser after
+adding the resource. The card keeps HA's native temperature and off/heat controls,
+and its lock button follows the child-lock switch's confirmed state. The mode
+selector remains available on the device page but is omitted from this dashboard.
+
 The default entity IDs are `climate.beha_lan_<device_id>` and
 `sensor.beha_lan_<device_id>_last_reading`, plus
 `switch.beha_lan_<device_id>_power`, `switch.beha_lan_<device_id>_child_lock`, and

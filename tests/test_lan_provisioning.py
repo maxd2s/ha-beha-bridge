@@ -42,7 +42,7 @@ class ProvisioningTests(unittest.TestCase):
         result = dashboard({'heaters': [{'device_id': 'AA:BB:CC:DD:EE:FF', 'name': 'Example'}]})
         encoded = json.dumps(result)
         self.assertIn('climate.beha_lan_aabbccddeeff', encoded)
-        self.assertIn('climate-hvac-modes', encoded)
+        self.assertIn('custom:beha-thermostat-card', encoded)
 
 
 if __name__ == '__main__':
