@@ -185,8 +185,8 @@ Sync complete (5 heaters)
 ## Bridge Health and Reading Age
 
 Version 1.2.0 publishes a bridge connectivity sensor, the last successful sync,
-and a last-reading timestamp for every heater. The Heaters dashboard configuration
-is in `ha/heaters-dashboard.json` (entity IDs are specific to this installation).
+and a last-reading timestamp for every heater. A generic LAN dashboard example
+is in `ha/heaters-dashboard.json`; generate your actual IDs with `tools/heaters_dashboard.py`.
 Reading age is calculated by Home Assistant from the timestamp, so it keeps aging
 even when the bridge is stopped. BEHA timestamps without an offset are interpreted
 as UTC and displayed in Home Assistant's local timezone. A missing or invalid

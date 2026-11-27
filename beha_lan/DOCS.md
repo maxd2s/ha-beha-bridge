@@ -55,6 +55,10 @@ are rejected, and commands to a stale heater are rejected. Restart/reconnection
 requires a new device report. An independent process watchdog terminates a stalled
 main loop; Supervisor's Watchdog restarts the app.
 
+Commands use non-retained QoS 0 to avoid an outgoing retry queue replaying old
+setpoints after reconnect. The heater's state reply is the confirmation; if a
+command is lost, the displayed target stays unchanged and you can retry.
+
 ## Dashboard
 
 The default entity IDs are `climate.beha_lan_<device_id>` and
@@ -67,7 +71,7 @@ python3 tools/heaters_dashboard.py --options /path/to/options.json --output heat
 
 The options JSON uses the same `heaters` array as the app. Paste the generated
 configuration into a new dashboard's raw configuration editor. The repository's
-`ha/heaters-dashboard.json` is an installation example with mixed LAN/cloud cards.
+`ha/heaters-dashboard.json` is a generic example with sample device IDs.
 
 ## Run outside Home Assistant OS
 

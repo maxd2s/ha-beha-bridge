@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """BEHA Gen 2 LAN MQTT adapter. Never logs raw device topics or payloads."""
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import logging
 import math
@@ -15,7 +15,7 @@ import time
 
 import paho.mqtt.client as mqtt
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 PREFIX = "beha_lan"
 BRIDGE = f"{PREFIX}/bridge/availability"
 ID = re.compile(r"^[0-9a-f]{12}$")
@@ -88,10 +88,10 @@ class Bridge:
         self.online = set()
         self.connected = False
 
-    def publish(self, topic, payload, retain=True):
+    def publish(self, topic, payload, retain=True, qos=1):
         if isinstance(payload, dict):
             payload = json.dumps(payload, allow_nan=False)
-        return self.client.publish(topic, payload, qos=1, retain=retain)
+        return self.client.publish(topic, payload, qos=qos, retain=retain)
 
     def config(self, component, object_id, payload):
         self.publish(f"homeassistant/{component}/{object_id}/config", payload)
@@ -128,6 +128,7 @@ class Bridge:
             "entity_category": "diagnostic", "state_topic": f"{base}/last_reading"})
         self.config("binary_sensor", f"{uid}_connection", {
             **common, "name": "Connection", "unique_id": f"{uid}_connection",
+            "availability": [{"topic": BRIDGE}],
             "default_entity_id": f"binary_sensor.{uid}_connection",
             "device_class": "connectivity", "entity_category": "diagnostic",
             "state_topic": f"{base}/availability", "payload_on": "online", "payload_off": "offline"})
@@ -187,7 +188,7 @@ class Bridge:
                 self.discovery(hid)
             self.seen[hid] = received
             self.online.add(hid)
-            stamp = datetime.now(timezone.utc).isoformat()
+            stamp = (datetime.now(timezone.utc) - timedelta(seconds=max(0, now - received))).isoformat()
             self.publish(f"{PREFIX}/{hid}/state", state)
             self.publish(f"{PREFIX}/{hid}/last_reading", stamp)
             self.publish(f"{PREFIX}/{hid}/availability", "online")
@@ -202,7 +203,12 @@ class Bridge:
                 LOG.warning("Rejected invalid temperature command")
                 return
             # Never publish an optimistic state; HA changes only on the heater's reply.
-            self.publish(f"devices/{hid}/messages/devicebound/command", command, retain=False)
+            # QoS 0 avoids paho's outgoing QoS 1 reconnect queue replaying a stale
+            # setpoint after a network outage. Actual heater feedback confirms success.
+            result = self.publish(f"devices/{hid}/messages/devicebound/command", command,
+                                  retain=False, qos=0)
+            if result.rc != mqtt.MQTT_ERR_SUCCESS:
+                LOG.warning("Temperature command was not sent; waiting for reconnection")
 
     def tick(self):
         if not self.connected:

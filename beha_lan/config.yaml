@@ -1,5 +1,5 @@
 name: BEHA LAN Bridge
-version: "0.1.0"
+version: "0.1.1"
 slug: beha_lan
 description: Local MQTT control and live dial feedback for provisioned BEHA Gen 2 heaters
 url: https://github.com/maxd2s/ha-beha-bridge

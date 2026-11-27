@@ -18,6 +18,7 @@ class LANTests(unittest.TestCase):
     def setUp(self):
         self.now = 100
         self.client = Mock()
+        self.client.publish.return_value.rc = 0
         self.bridge = Bridge(self.client, {"heaters": [
             {"device_id": ONE, "name": "Study"}, {"device_id": TWO, "name": "Bedroom"}]},
             clock=lambda: self.now)
@@ -45,6 +46,7 @@ class LANTests(unittest.TestCase):
         command = self.publications('/command')[0]
         self.assertEqual(json.loads(command.args[1]), {'com.devicedrive.heater': {'target_temperature': '20.5'}})
         self.assertFalse(command.kwargs['retain'])
+        self.assertEqual(command.kwargs['qos'], 0)
         self.assertFalse(self.publications('/state'))
 
     def test_stale_devices_expire_independently_and_commands_are_rejected(self):
