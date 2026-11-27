@@ -1,4 +1,4 @@
-/* Native HA thermostat with a device-confirmed child-lock control in the dial. */
+/* Native HA thermostat with a device-confirmed child-lock control in the top-left header. */
 class BehaThermostatCard extends HTMLElement {
   constructor() {
     super();
@@ -7,24 +7,24 @@ class BehaThermostatCard extends HTMLElement {
       <style>
         :host { display:block; position:relative; height:100%; }
         #dial { height:100%; }
-        button { position:absolute; z-index:1; left:50%; top:80px;
-          transform:translate(-50%,-50%); min-height:36px; padding:5px 12px;
+        button { position:absolute; z-index:1; left:4px; top:4px;
+          width:40px; height:40px; padding:0; justify-content:center;
           display:flex; align-items:center; gap:6px; cursor:pointer;
-          border:1px solid var(--divider-color); border-radius:20px;
-          background:var(--ha-card-background,var(--card-background-color));
+          border:1px solid transparent; border-radius:50%;
+          background:transparent;
           color:var(--secondary-text-color); font:500 11px var(--paper-font-body1_-_font-family, sans-serif); }
+        button:hover:not(:disabled) { background:var(--secondary-background-color); }
         button[aria-checked="true"] { color:var(--primary-color); border-color:var(--primary-color); }
         button:focus-visible { outline:2px solid var(--primary-color); outline-offset:3px; }
         button:disabled { opacity:.45; cursor:default; }
-        ha-icon { --mdc-icon-size:17px; }
+        ha-icon { --mdc-icon-size:20px; }
       </style>
       <div id="dial"></div>
       <button type="button" role="switch" aria-label="Child lock" disabled>
-        <ha-icon icon="mdi:lock-open-variant-outline"></ha-icon><span>Child lock</span>
+        <ha-icon icon="mdi:lock-open-variant-outline"></ha-icon>
       </button>`;
     this._button = this.shadowRoot.querySelector('button');
     this._button.addEventListener('click', () => this._toggle());
-    this._resize = new ResizeObserver(() => this._position());
   }
   setConfig(config) {
     if (!config.entity?.startsWith('climate.') || !config.child_lock_entity?.startsWith('switch.')) {
@@ -43,11 +43,7 @@ class BehaThermostatCard extends HTMLElement {
       name:this._config.name, show_current_as_primary:true,
       features:[{type:'climate-hvac-modes', hvac_modes:['off','heat']}] });
     if (this._hass) this._card.hass = this._hass;
-    await this._card.updateComplete;
-    this._position();
   }
-  connectedCallback() { this._resize.observe(this); this._position(); }
-  disconnectedCallback() { this._resize.disconnect(); cancelAnimationFrame(this._frame); }
   set hass(hass) {
     this._hass = hass;
     if (this._card) this._card.hass = hass;
@@ -60,17 +56,6 @@ class BehaThermostatCard extends HTMLElement {
     this._button.setAttribute('aria-label',label);
     this._button.title = this._pending ? 'Waiting for heater confirmation' : label;
     this._button.querySelector('ha-icon').setAttribute('icon', state === 'on' ? 'mdi:lock' : 'mdi:lock-open-variant-outline');
-    this._position();
-  }
-  _position() {
-    cancelAnimationFrame(this._frame);
-    this._frame = requestAnimationFrame(() => {
-      const dial = this._card?.shadowRoot?.querySelector('.container');
-      if (!dial) return;
-      const box = dial.getBoundingClientRect(), host = this.getBoundingClientRect();
-      this._button.style.left = `${box.left - host.left + box.width / 2}px`;
-      this._button.style.top = `${box.top - host.top + box.height * .16}px`;
-    });
   }
   _notify(message) {
     this.dispatchEvent(new CustomEvent('hass-notification', { bubbles:true, composed:true, detail:{ message } }));

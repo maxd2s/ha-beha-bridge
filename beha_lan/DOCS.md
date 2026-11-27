@@ -72,9 +72,9 @@ command is lost, the displayed target stays unchanged and you can retry.
 
 ## Dashboard
 
-For the thermostat with child lock inside its dial, copy
+For the thermostat with child lock in its top-left corner, copy
 [`ha/beha-thermostat-card.js`](../ha/beha-thermostat-card.js) to HA's
-`www/beha-thermostat-card.js` and register `/local/beha-thermostat-card.js?v=1`
+`www/beha-thermostat-card.js` and register `/local/beha-thermostat-card.js?v=2`
 as a JavaScript module under Dashboard resources. Reload your browser after
 adding the resource. The card keeps HA's native temperature and off/heat controls,
 and its lock button follows the child-lock switch's confirmed state. The mode
