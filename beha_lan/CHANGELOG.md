@@ -1,3 +1,10 @@
+# 0.1.2
+
+- Decode control modes and child lock into readable states using firmware 2.3 evidence.
+- Keep raw codes in sensor attributes and preserve unknown values explicitly.
+- Explain that firmware 2.3 hardcodes alarm flags to zero; do not present it as proof of no faults.
+- Update dashboard diagnostics and add protocol evidence notes.
+
 # 0.1.1
 
 - Avoid outgoing command replay after reconnect; continue requiring heater feedback.

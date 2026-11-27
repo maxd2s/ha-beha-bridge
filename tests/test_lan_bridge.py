@@ -2,7 +2,7 @@ import json
 import unittest
 from unittest.mock import Mock
 
-from beha_lan.bridge import Bridge, settings, target_command
+from beha_lan.bridge import Bridge, diagnostic_label, settings, target_command
 
 ONE = "001122334455"
 TWO = "aabbccddeeff"
@@ -95,6 +95,22 @@ class LANTests(unittest.TestCase):
     def test_unknown_mode_not_misrepresented_as_heat(self):
         self.report(data=payload(mode=8))
         self.assertEqual(json.loads(self.publications('/state')[0].args[1])['mode'], 'None')
+
+    def test_readable_modes_and_raw_code_preserved(self):
+        expected = ['Off', 'Frost protection (5°C)', 'Local dial', 'Remote target', 'Weekly schedule']
+        for mode, label in enumerate(expected):
+            self.report(data=payload(mode=mode))
+            state = json.loads(self.publications('/state')[-1].args[1])
+            self.assertEqual(state['heater_mode'], mode)
+            self.assertEqual(state['heater_mode_text'], label)
+
+    def test_unknown_diagnostic_values_are_not_guessed(self):
+        self.assertEqual(diagnostic_label('heater_mode', 9), 'Unknown mode (9)')
+        self.assertEqual(diagnostic_label('child_lock', 0), 'Unlocked')
+        self.assertEqual(diagnostic_label('child_lock', 1), 'Locked')
+        self.assertEqual(diagnostic_label('child_lock', 2), 'Unknown lock state (2)')
+        self.assertEqual(diagnostic_label('alarm_flags', 0), 'No flags reported')
+        self.assertEqual(diagnostic_label('alarm_flags', 5), 'Unknown alarm flags (0x5)')
 
     def test_command_validation(self):
         for value in (b'nan', b'inf', b'4', b'31', b'19.1', b'{}', b'1'*100):

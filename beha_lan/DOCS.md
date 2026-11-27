@@ -38,7 +38,7 @@ Only one instance of this bridge should run on a broker with the default topics.
 
 - Set targets from 5–30°C in 0.5°C steps; HA updates from the heater's actual reply.
 - Read physical dial target changes, measured temperature and last-reading time.
-- See heater mode, child-lock code and alarm flags as read-only diagnostics.
+- See readable control mode, child lock and alarm status, with raw codes in attributes.
 - Receive periodic reports roughly every 30 seconds and extra reports on dial changes.
 - Mark an individual heater unavailable after 90 seconds without valid fresh data.
 - See bridge health separately from individual heater availability.
@@ -48,6 +48,15 @@ Observed heater mode codes 2 and 3 map to `heat`; other modes display unknown.
 This does **not** establish whether the heating element is actively energized.
 Power off/on, child-lock writes, schedules, heating-action detection and firmware
 updates are not implemented. No speculative mode codes are sent to heaters.
+
+Control mode labels are Off (0), Frost protection at 5°C (1), Local dial (2),
+Remote target (3), and Weekly schedule (4). Child lock is Unlocked (0) or Locked (1).
+Unknown values remain explicitly unknown. These mappings describe the firmware's
+control state; they do not add power or schedule commands to the bridge.
+
+**Alarm limitation:** firmware 2.3 hardcodes `alarm_flags` to zero. The display
+therefore says **No flags reported**, not “No faults.” Nonzero flags from another
+firmware are shown as unknown with their hexadecimal value. See [protocol evidence](PROTOCOL.md).
 
 The last-reading sensor stays visible when offline so its age continues increasing.
 Retained raw telemetry never establishes freshness. Retained and delayed commands

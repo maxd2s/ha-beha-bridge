@@ -26,9 +26,10 @@ def dashboard(options):
              "Last reported {{ as_local(as_datetime(stamp)).strftime('%d %b, %H:%M:%S') }}\n"
              "{% else %}\n**Reading age:** Waiting for the first local report\n{% endif %}"},
             {"type": "entities", "show_header_toggle": False, "entities": [
-                {"entity": f"sensor.beha_lan_{hid}_heater_mode", "name": "Heater mode code"},
-                {"entity": f"sensor.beha_lan_{hid}_child_lock", "name": "Child lock code"},
-                {"entity": f"sensor.beha_lan_{hid}_alarm_flags", "name": "Alarm flags"}]}]})
+                {"entity": f"sensor.beha_lan_{hid}_heater_mode", "name": "Control mode"},
+                {"entity": f"sensor.beha_lan_{hid}_child_lock", "name": "Child lock"},
+                {"entity": f"sensor.beha_lan_{hid}_alarm_flags", "name": "Alarm status"}]},
+            {"type": "markdown", "content": "Firmware 2.3 always reports zero alarm flags; this does not confirm the heater is fault-free."}]})
     return {"title": "Heaters", "views": [{"title": "Heaters", "path": "overview",
              "type": "sections", "max_columns": 3, "sections": sections}]}
 

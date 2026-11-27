@@ -15,11 +15,26 @@ import time
 
 import paho.mqtt.client as mqtt
 
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 PREFIX = "beha_lan"
 BRIDGE = f"{PREFIX}/bridge/availability"
 ID = re.compile(r"^[0-9a-f]{12}$")
 LOG = logging.getLogger(__name__)
+HEATER_MODES = {0: "Off", 1: "Frost protection (5°C)", 2: "Local dial",
+                3: "Remote target", 4: "Weekly schedule"}
+
+
+def diagnostic_label(key, value):
+    """Decoded from firmware 2.3; never guess meanings for new values/bits."""
+    if key == "heater_mode":
+        return HEATER_MODES.get(value, f"Unknown mode ({value})")
+    if key == "child_lock":
+        return {0: "Unlocked", 1: "Locked"}.get(value, f"Unknown lock state ({value})")
+    if key == "alarm_flags":
+        # Firmware 2.3 hardcodes zero in its JSON format string. Zero is not
+        # evidence of a functioning alarm monitor or an absence of faults.
+        return "No flags reported" if value == 0 else f"Unknown alarm flags (0x{value:X})"
+    raise ValueError("Unsupported diagnostic")
 
 
 def device_id(value):
@@ -66,6 +81,7 @@ def telemetry(payload):
     for key in ("heater_mode", "child_lock", "alarm_flags"):
         if type(beha.get(key)) is int and 0 <= beha[key] <= 65535:
             result[key] = beha[key]
+            result[f"{key}_text"] = diagnostic_label(key, beha[key])
     # Schedule names/IDs and cloud-token-bearing topics are deliberately not relayed.
     return result
 
@@ -115,13 +131,18 @@ class Bridge:
             "mode_state_topic": f"{base}/state",
             "mode_state_template": "{{ value_json.mode }}",
             "optimistic": False})
-        for key, name in (("heater_mode", "Heater mode code"), ("child_lock", "Child lock code"),
-                          ("alarm_flags", "Alarm flags")):
+        for key, name in (("heater_mode", "Control mode"), ("child_lock", "Child lock"),
+                          ("alarm_flags", "Alarm status")):
+            attributes = "{{ {'raw_code': value_json." + key + " | default(none)} | tojson }}"
+            if key == "alarm_flags":
+                attributes = ("{{ {'raw_code': value_json.alarm_flags | default(none), "
+                              "'reporting_note': 'Tested firmware 2.3 hardcodes zero; this is not a fault-health check.'} | tojson }}")
             self.config("sensor", f"{uid}_{key}", {
                 **common, "name": name, "unique_id": f"{uid}_{key}",
                 "default_entity_id": f"sensor.{uid}_{key}", "entity_category": "diagnostic",
                 "state_topic": f"{base}/state",
-                "value_template": "{{ value_json." + key + " | default('None') }}"})
+                "value_template": "{{ value_json." + key + "_text | default('None') }}",
+                "json_attributes_topic": f"{base}/state", "json_attributes_template": attributes})
         self.config("sensor", f"{uid}_last_reading", {
             "device": device, "name": "Last reading", "unique_id": f"{uid}_last_reading",
             "default_entity_id": f"sensor.{uid}_last_reading", "device_class": "timestamp",

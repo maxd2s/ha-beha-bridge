@@ -49,17 +49,21 @@
               "entities": [
                 {
                   "entity": "sensor.beha_lan_001122334455_heater_mode",
-                  "name": "Heater mode code"
+                  "name": "Control mode"
                 },
                 {
                   "entity": "sensor.beha_lan_001122334455_child_lock",
-                  "name": "Child lock code"
+                  "name": "Child lock"
                 },
                 {
                   "entity": "sensor.beha_lan_001122334455_alarm_flags",
-                  "name": "Alarm flags"
+                  "name": "Alarm status"
                 }
               ]
+            },
+            {
+              "type": "markdown",
+              "content": "Firmware 2.3 always reports zero alarm flags; this does not confirm the heater is fault-free."
             }
           ]
         },
@@ -85,17 +89,21 @@
               "entities": [
                 {
                   "entity": "sensor.beha_lan_aabbccddeeff_heater_mode",
-                  "name": "Heater mode code"
+                  "name": "Control mode"
                 },
                 {
                   "entity": "sensor.beha_lan_aabbccddeeff_child_lock",
-                  "name": "Child lock code"
+                  "name": "Child lock"
                 },
                 {
                   "entity": "sensor.beha_lan_aabbccddeeff_alarm_flags",
-                  "name": "Alarm flags"
+                  "name": "Alarm status"
                 }
               ]
+            },
+            {
+              "type": "markdown",
+              "content": "Firmware 2.3 always reports zero alarm flags; this does not confirm the heater is fault-free."
             }
           ]
         }
