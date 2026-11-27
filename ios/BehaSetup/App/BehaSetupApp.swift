@@ -118,6 +118,17 @@ struct SetupView: View {
                     }
                 }
 
+                Section("Diagnostics") {
+                    Text("A report is saved automatically on this iPhone with setup steps and error codes. Passwords, broker credentials and raw payloads are excluded.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    if model.diagnostics.saveFailed {
+                        Text("The report could not be saved. Check available iPhone storage.").foregroundStyle(.orange)
+                    } else {
+                        ShareLink("Share diagnostic report", item: model.diagnostics.fileURL)
+                            .disabled(model.busy)
+                    }
+                }
+
                 Section {
                     Text("Gen 2 firmware 2.3 only. Bluetooth is needed for setup; normal control uses Wi-Fi. This app does not change your router, block internet access, or flash firmware.")
                         .font(.caption).foregroundStyle(.secondary)

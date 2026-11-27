@@ -2,6 +2,7 @@ import Foundation
 import Network
 
 @MainActor final class MQTTVerifier {
+    var diagnostic: ((String, [String: String], Error?) -> Void)?
     private var connection: NWConnection?
     private var generation = UUID()
     private var buffer = Data()
@@ -18,6 +19,7 @@ import Network
         stop()
         let broker = try BrokerAddress(profile.brokerURI)
         self.deviceID = try SetupProfile.deviceID(deviceID)
+        diagnostic?("mqtt_preflight_started", [:], nil)
         let connect = try MQTTWire.connect(broker, deviceID: deviceID, clientID: "beha-" + String(UUID().uuidString.prefix(18)))
         let parameters = broker.tls ? NWParameters.tls : NWParameters.tcp
         parameters.prohibitedInterfaceTypes = [.cellular]
@@ -37,7 +39,9 @@ import Network
                     guard let self, self.generation == token else { return }
                     switch state {
                     case .ready: self.send(connect); self.receive(token)
-                    case .failed: self.fail("Cannot reach the MQTT broker. Check its address, port, TLS settings and iPhone Local Network permission.")
+                    case .failed(let error):
+                        self.diagnostic?("mqtt_connection_failed", [:], error)
+                        self.fail("Cannot reach the MQTT broker. Check its address, port, TLS settings and iPhone Local Network permission.")
                     default: break
                     }
                     }
@@ -54,6 +58,7 @@ import Network
         buffer = Data(); subscribed = false; failure = nil; discardOldReadings()
     }
     private func fail(_ message: String) {
+        diagnostic?("mqtt_check_failed", [:], nil)
         let error = SetupFailure(message); failure = error
         deadline?.cancel(); keepalive?.cancel()
         ready?.resume(throwing: error); ready = nil
@@ -64,6 +69,7 @@ import Network
         connection?.send(content: data, completion: .contentProcessed { [weak self] error in
             Task { @MainActor in
             guard let self, self.generation == token, error != nil else { return }
+            self.diagnostic?("mqtt_send_failed", [:], error)
             self.fail("MQTT connection was interrupted. Check the broker and Wi-Fi.")
             }
         })
@@ -78,7 +84,10 @@ import Network
                     while let (header, body) = try MQTTWire.pop(&self.buffer) { try self.handle(header, body) }
                 } catch { self.fail("Invalid MQTT response from the broker."); return }
             }
-            if ended || error != nil { self.fail("MQTT connection closed. Check the broker and credentials."); return }
+            if ended || error != nil {
+                self.diagnostic?("mqtt_receive_closed", [:], error)
+                self.fail("MQTT connection closed. Check the broker and credentials."); return
+            }
             self.receive(token)
             }
         }
@@ -87,12 +96,14 @@ import Network
         switch header >> 4 {
         case 2:
             guard body == Data([0, 0]) else { fail("MQTT login was rejected. Check the broker username and password."); return }
+            diagnostic?("mqtt_login_accepted", [:], nil)
             send(try MQTTWire.subscribe(deviceID))
         case 9:
             guard body.count == 3, body.prefix(2) == Data([0, 1]), body.last == 0 else {
                 fail("Broker denied the heater telemetry subscription. Check MQTT topic permissions."); return
             }
             subscribed = true; deadline?.cancel(); ready?.resume(); ready = nil
+            diagnostic?("mqtt_subscription_accepted", [:], nil)
             keepalive = Task { [weak self] in
                 while !Task.isCancelled {
                     try? await Task.sleep(nanoseconds: 20_000_000_000)
@@ -101,6 +112,7 @@ import Network
             }
         case 3:
             if subscribed, let reading = MQTTWire.reading(header: header, body: body, deviceID: deviceID) {
+                diagnostic?("fresh_heater_telemetry", [:], nil)
                 latest = reading; receivedAt = Date()
             }
         default: break

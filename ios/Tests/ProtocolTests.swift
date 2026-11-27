@@ -2,6 +2,30 @@ import XCTest
 @testable import BehaSetupCore
 
 final class ProtocolTests: XCTestCase {
+    func testDiagnosticReportExcludesCredentialsAndNSErrorPayloads() throws {
+        let secret = "SECRET_MUST_NOT_APPEAR"
+        var report = DiagnosticReport(appVersion: "test", systemVersion: "test")
+        let error = NSError(domain: "CBATTErrorDomain", code: 15, userInfo: [NSLocalizedDescriptionKey: secret, "payload": secret, NSUnderlyingErrorKey: NSError(domain: secret, code: 3)])
+        report.record("ble_operation_failed", details: ["operation": "read", "endpoint": "proto-ver", "password": secret, "broker_uri": secret, "payload": secret, "ssid": secret], error: error)
+        let encoded = try report.encoded()
+        XCTAssertFalse(String(decoding: encoded, as: UTF8.self).contains(secret))
+        XCTAssertEqual(report.events.last?.error, DiagnosticError(error))
+        XCTAssertEqual(report.events.last?.details, ["operation": "read", "endpoint": "proto-ver"])
+        let unknown = DiagnosticError(NSError(domain: secret, code: 99, userInfo: [NSLocalizedDescriptionKey: secret]))
+        XCTAssertEqual(unknown.domain, "Other")
+        XCTAssertFalse(unknown.bluetoothAdvice.contains(secret))
+        XCTAssertTrue(DiagnosticError(error).bluetoothAdvice.contains("encryption"))
+    }
+    func testDiagnosticHistoryIsBoundedAndSurvivesSerialization() throws {
+        var report = DiagnosticReport(appVersion: "0.1.1", systemVersion: "test")
+        for index in 0..<300 { report.record("event_\(index)") }
+        XCTAssertEqual(report.events.count, 200)
+        XCTAssertEqual(report.events.first?.event, "event_100")
+        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+        let restored = try decoder.decode(DiagnosticReport.self, from: report.encoded())
+        XCTAssertEqual(restored.events.count, 200)
+        XCTAssertEqual(restored.events.last?.event, "event_299")
+    }
     func testWireVectorsMatchProvenPythonProvisioner() {
         XCTAssertEqual(Wire.session, Data([0x10, 0, 0x52, 3, 0xa2, 1, 0]))
         XCTAssertEqual(Wire.config(0), Data([8, 0, 0x52, 0]))

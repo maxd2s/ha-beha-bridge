@@ -15,6 +15,7 @@ struct NearbyHeater: Identifiable {
     @Published var available = false
     @Published var status = "Bluetooth is starting…"
     @Published var connected = false
+    var diagnostic: ((String, [String: String], Error?) -> Void)?
     private var central: CBCentralManager!
     private var devices: [UUID: CBPeripheral] = [:]
     private var peer: CBPeripheral?
@@ -22,6 +23,7 @@ struct NearbyHeater: Identifiable {
     private var pending: CheckedContinuation<Data, Error>?
     private var pendingID: UUID?
     private var operation = ""
+    private var endpoint = ""
     private var deadline: Task<Void, Never>?
     private var scanDeadline: Task<Void, Never>?
     private var expectedCharacteristic: CBUUID?
@@ -34,6 +36,7 @@ struct NearbyHeater: Identifiable {
     }
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
         available = central.state == .poweredOn
+        diagnostic?("bluetooth_state", ["bluetooth_state": String(central.state.rawValue), "authorization": String(CBCentralManager.authorization.rawValue)], nil)
         switch central.state {
         case .poweredOn: status = "Ready to find nearby heaters"
         case .poweredOff: status = "Turn on Bluetooth in iPhone Settings."
@@ -46,6 +49,7 @@ struct NearbyHeater: Identifiable {
     func scan() {
         guard available else { return }
         stopScan(); nearby = []; devices = [:]; scanning = true
+        diagnostic?("scan_started", ["bluetooth_state": String(central.state.rawValue), "authorization": String(CBCentralManager.authorization.rawValue)], nil)
         central.scanForPeripherals(withServices: nil)
         scanDeadline = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 60_000_000_000)
@@ -67,10 +71,12 @@ struct NearbyHeater: Identifiable {
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 let id = UUID(); pendingID = id; pending = continuation; operation = kind
+                diagnostic?("ble_operation_started", ["operation": kind, "endpoint": endpoint], nil)
                 deadline = Task { [weak self] in
                     try? await Task.sleep(nanoseconds: seconds * 1_000_000_000)
                     guard !Task.isCancelled, let self, self.pendingID == id else { return }
-                    self.finish(.failure(SetupFailure("Bluetooth timed out. Keep the phone near the heater. If pairing fails after a reset, forget only this BEHA device in iPhone Bluetooth settings, then retry.")))
+                    self.diagnostic?("ble_timeout", ["operation": self.operation, "endpoint": self.endpoint], nil)
+                    self.finish(.failure(SetupFailure("Bluetooth \(self.operation) timed out at \(self.endpoint.isEmpty ? "connection setup" : self.endpoint). Keep the phone near the heater. A diagnostic report was saved.")))
                     self.disconnect()
                 }
                 start()
@@ -84,6 +90,7 @@ struct NearbyHeater: Identifiable {
     func connect(_ id: UUID) async throws {
         stopScan(); disconnect()
         guard available, let device = devices[id] else { throw SetupFailure("Scan again to find the heater.") }
+        if let found = nearby.first(where: { $0.id == id }) { diagnostic?("heater_selected", ["rssi": String(found.rssi)], nil) }
         peer = device; device.delegate = self
         _ = try await wait("connect", seconds: 25) { self.central.connect(device) }
         _ = try await wait("services") { device.discoverServices([Self.service]) }
@@ -96,12 +103,13 @@ struct NearbyHeater: Identifiable {
                 throw SetupFailure("This heater’s provisioning endpoints are unsupported.")
             }
             characteristics[name] = characteristic
+            diagnostic?("endpoint_discovered", ["endpoint": name, "properties": String(characteristic.properties.rawValue)], nil)
         }
     }
     func disconnect() {
         finish(.failure(CancellationError()))
         if let peer { central.cancelPeripheralConnection(peer) }
-        peer = nil; connected = false; characteristics = [:]; expectedCharacteristic = nil
+        peer = nil; connected = false; characteristics = [:]; expectedCharacteristic = nil; endpoint = ""
     }
     func exchange(_ endpoint: String, _ data: Data) async throws -> Data {
         guard let peer, peer.state == .connected, let characteristic = characteristics[endpoint] else {
@@ -111,19 +119,24 @@ struct NearbyHeater: Identifiable {
             throw SetupFailure("Bluetooth write is too large for this connection.")
         }
         expectedCharacteristic = characteristic.uuid
+        self.endpoint = endpoint
+        diagnostic?("ble_exchange", ["endpoint": endpoint, "byte_count": String(data.count)], nil)
         _ = try await wait("write") { peer.writeValue(data, for: characteristic, type: .withResponse) }
         return try await wait("read") { peer.readValue(for: characteristic) }
     }
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         guard peripheral === peer, operation == "connect" else { return }
+        diagnostic?("ble_connected", [:], nil)
         connected = true; finish(.success(Data()))
     }
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
         guard peripheral === peer else { return }; connected = false
+        diagnostic?("ble_connect_failed", [:], error)
         finish(.failure(SetupFailure("Could not connect to the heater. Close the BEHA app and keep only this heater in setup mode.")))
     }
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         guard peripheral === peer else { return }; connected = false
+        diagnostic?("ble_disconnected", ["operation": operation, "endpoint": endpoint], error)
         finish(.failure(SetupFailure("Bluetooth disconnected. The heater may be restarting; check local MQTT before retrying.")))
     }
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
@@ -140,10 +153,14 @@ struct NearbyHeater: Identifiable {
         complete(error, value: characteristic.value)
     }
     private func complete(_ error: Error?, value: Data? = Data()) {
-        if error != nil {
-            // Never display raw CoreBluetooth errors: they may contain endpoint data.
-            finish(.failure(SetupFailure("Bluetooth read/write failed. Accept any iPhone pairing prompt. If this heater was reset, forget its old BEHA Bluetooth pairing and retry.")))
-        } else if let value { finish(.success(value)) }
+        if let error {
+            diagnostic?("ble_operation_failed", ["operation": operation, "endpoint": endpoint], error)
+            let safe = DiagnosticError(error)
+            finish(.failure(SetupFailure("Bluetooth \(operation) failed at \(endpoint.isEmpty ? "connection setup" : endpoint) (\(safe.domain), code \(safe.code)). \(safe.bluetoothAdvice)")))
+        } else if let value {
+            diagnostic?("ble_operation_completed", ["operation": operation, "endpoint": endpoint, "byte_count": String(value.count)], nil)
+            finish(.success(value))
+        }
         else { finish(.failure(SetupFailure("Heater returned no data."))) }
     }
 }

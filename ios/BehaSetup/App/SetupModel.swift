@@ -12,11 +12,27 @@ import Combine
     @Published var verifiedReading: HeaterReading?
     @Published var needsRecovery = false
     let bluetooth = BluetoothLink()
+    let diagnostics: DiagnosticStore
     private let mqtt = MQTTVerifier()
     private var session: ProvisioningSession?
     private var task: Task<Void, Never>?
     private var inspectedID: String?
     private var inspectedProfile: SetupProfile?
+
+    init() {
+        let store = DiagnosticStore(); diagnostics = store
+        bluetooth.diagnostic = { [weak store] event, details, error in store?.record(event, details, error: error) }
+        mqtt.diagnostic = { [weak store] event, details, error in store?.record(event, details, error: error) }
+    }
+    private func recordOutcome(_ outcome: String, error: Error? = nil) {
+        diagnostics.record("setup_outcome", [
+            "outcome": outcome,
+            "operation": session?.phase ?? "preflight",
+            "settings_may_have_changed": String(session?.settingsMayHaveChanged ?? false),
+            "broker_acknowledged": String(session?.brokerAcknowledged ?? false),
+            "apply_sent": String(session?.applySent ?? false)
+        ], error: error)
+    }
 
     func importProfile(_ url: URL) {
         guard !busy else { return }
@@ -27,7 +43,8 @@ import Combine
             reset(); self.profile = profile
             if let first = profile.heaters.first { select(first) }
             message = "Setup file loaded. Credentials stay in memory and are cleared when the app closes."
-        } catch { message = safeMessage(error) }
+            diagnostics.record("profile_imported")
+        } catch { message = safeMessage(error); diagnostics.record("profile_import_failed", error: error) }
     }
     func select(_ heater: Heater) {
         reset(); selectedName = heater.name; expectedID = heater.deviceID
@@ -46,6 +63,7 @@ import Combine
                 throw SetupFailure("Choose the Bluetooth heater matching the selected device ID.")
             }
             reset(); busy = true; message = "Checking local MQTT access…"
+            diagnostics.record("inspection_started", ["device_id": id])
             task = Task {
                 defer { busy = false }
                 do {
@@ -53,17 +71,21 @@ import Combine
                     steps.append("MQTT login and telemetry subscription accepted")
                     message = "Verifying heater over Bluetooth…"
                     try await bluetooth.connect(device.id)
-                    let session = ProvisioningSession(bluetooth); self.session = session
+                    let session = ProvisioningSession(bluetooth) { [weak self] phase in
+                        self?.diagnostics.record("provisioning_phase", ["operation": phase])
+                    }; self.session = session
                     let identity = try await session.inspect(expectedID: id)
                     self.identity = identity; inspectedID = id; inspectedProfile = checked
                     steps.append("Full heater ID verified")
+                    diagnostics.record("identity_verified", ["device_id": id, "firmware_supported": String(identity.supported)])
                     message = identity.supported ? "Ready. Review the heater and Wi-Fi, then tap Migrate." : "Firmware \(identity.firmware) has not been validated. No settings written."
                 } catch {
+                    recordOutcome("inspection_failed", error: error)
                     message = safeMessage(error); identity = nil; session = nil
                     bluetooth.disconnect(); mqtt.stop()
                 }
             }
-        } catch { message = safeMessage(error) }
+        } catch { message = safeMessage(error); diagnostics.record("input_validation_failed", error: error) }
     }
     var canApply: Bool {
         !busy && identity?.supported == true && bluetooth.connected &&
@@ -72,6 +94,7 @@ import Combine
     func migrate() {
         guard canApply, let session, let checked = inspectedProfile, let id = inspectedID else { return }
         busy = true; verifiedReading = nil; needsRecovery = false
+        diagnostics.record("migration_confirmed", ["device_id": id])
         task = Task {
             defer { busy = false; bluetooth.disconnect(); mqtt.stop(); identity = nil }
             do {
@@ -99,6 +122,7 @@ import Combine
                         verifiedReading = reading; needsRecovery = false
                         steps.append("Fresh, non-retained heater telemetry received")
                         message = "Local MQTT verified. Check this heater’s readings and controls in HA before blocking its internet access."
+                        recordOutcome("local_mqtt_verified")
                         return
                     }
                     if tick == 2, bluetooth.connected {
@@ -110,6 +134,7 @@ import Combine
                 }
                 throw SetupFailure("No fresh MQTT reading arrived. Settings may be saved, but migration is not verified. Keep internet access enabled and check Wi-Fi, broker permissions and HA.")
             } catch {
+                recordOutcome("migration_incomplete", error: error)
                 needsRecovery = session.settingsMayHaveChanged
                 message = safeMessage(error)
                 if needsRecovery { message += " Settings may have changed. Check the heater before retrying; no automatic rollback or internet block was performed." }
@@ -117,6 +142,7 @@ import Combine
         }
     }
     func cancel() {
+        recordOutcome("user_or_background_cancelled")
         task?.cancel(); bluetooth.stopScan(); bluetooth.disconnect(); mqtt.stop()
         if session?.settingsMayHaveChanged == true {
             needsRecovery = true

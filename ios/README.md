@@ -92,6 +92,21 @@ It does not touch Plume or create a new Wi-Fi network.
 
 ## Failure and recovery
 
+Version 0.1.1 saves a bounded diagnostic report automatically in the app's Files
+folder as `BEHA-Diagnostics.json`. It records timestamps, app/iOS versions, the
+selected heater ID, RSSI, Bluetooth authorization/state, endpoint properties,
+operation names, response sizes, exact Apple error domain/code, and setup write
+progress. It excludes Wi-Fi names/passwords, broker URIs/credentials, raw GATT
+responses, raw MQTT topics/payloads and NSError descriptions/userInfo. iOS does
+not expose saved pairing state through public CoreBluetooth APIs, so the report
+records authentication/encryption errors rather than guessing whether bonded.
+
+Use **Share diagnostic report** to export it, or retrieve it through Xcode's
+device file tools while connected to your own Mac. Nothing is uploaded
+automatically. It persists across relaunch, is excluded from device backups,
+and is limited to 200 events. No write retries or provisioning behavior were
+changed by this diagnostic update.
+
 - If pairing fails after a heater reset, forget **only that heater's** old BEHA
   pairing in iPhone Bluetooth settings, close the BEHA app, and retry Link-Up.
 - Every BLE operation and MQTT preflight has a timeout. Stop cancels active work;

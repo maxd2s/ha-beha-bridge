@@ -82,7 +82,12 @@ struct HeaterIdentity: Equatable {
     private(set) var settingsMayHaveChanged = false
     private(set) var brokerAcknowledged = false
     private(set) var applySent = false
-    init(_ transport: ProvisioningTransport) { self.transport = transport }
+    private(set) var phase = "not_started"
+    private let onPhase: (String) -> Void
+    init(_ transport: ProvisioningTransport, onPhase: @escaping (String) -> Void = { _ in }) {
+        self.transport = transport; self.onPhase = onPhase
+    }
+    private func setPhase(_ phase: String) { self.phase = phase; onPhase(phase) }
 
     private func json(_ endpoint: String, data: Data = Data("?".utf8)) async throws -> [String: Any] {
         let reply = try await transport.exchange(endpoint, data)
@@ -95,37 +100,44 @@ struct HeaterIdentity: Equatable {
     func inspect(expectedID: String) async throws -> HeaterIdentity {
         identity = nil
         let expected = try SetupProfile.deviceID(expectedID)
+        setPhase("protocol_information")
         let proto = try await json("proto-ver")
         guard let prov = proto["prov"] as? [String: Any],
               (prov["sec_ver"] as? Int ?? 0) == 0,
               (prov["cap"] as? [String] ?? []).contains("no_sec") else {
             throw SetupFailure("Unsupported provisioning protocol. No settings written.")
         }
+        setPhase("provisioning_session")
         let outer = try Wire.parse(await transport.exchange("prov-session", Wire.session))
         let sec = try Wire.parse(Wire.bytes(outer, 10))
         let status = try Wire.parse(Wire.bytes(sec, 21))
         guard try Wire.number(outer, 2) == 0, try Wire.number(sec, 1) == 1, try Wire.number(status, 1) == 0 else {
             throw SetupFailure("Heater did not accept the setup session.")
         }
+        setPhase("full_device_identity")
         let device = try await json("device_id")
         guard let rawID = device["device_id"] as? String,
               (try? SetupProfile.deviceID(rawID)) == expected else {
             throw SetupFailure("The heater’s full ID does not match. No settings written.")
         }
+        setPhase("firmware_version")
         let version = try await json("version")
         guard let firmware = version["version"] as? String else { throw SetupFailure("Missing firmware version.") }
         let verified = HeaterIdentity(deviceID: expected, firmware: firmware)
         identity = verified
+        setPhase("identity_verified")
         return verified
     }
     func apply(_ profile: SetupProfile) async throws {
         let profile = try profile.validated()
         guard let identity, identity.supported else { throw SetupFailure("Verify a supported Gen 2 firmware 2.3 heater first.") }
         try Task.checkCancellation()
+        setPhase("stage_wifi")
         settingsMayHaveChanged = true // Even an acknowledgement timeout can follow a successful write.
         let wifi = Wire.message(1, Data(profile.ssid.utf8)) + Wire.message(2, Data(profile.password.utf8))
         _ = try Wire.response(await transport.exchange("prov-config", Wire.config(2, wifi)), kind: 3, field: 13)
         try Task.checkCancellation()
+        setPhase("save_broker_override")
         let payload = try JSONSerialization.data(withJSONObject: ["iothub_override": profile.brokerURI])
         let ack = try await json("custom_data", data: payload)
         guard ack["iothub_override"] as? String == profile.brokerURI else {
@@ -133,10 +145,12 @@ struct HeaterIdentity: Equatable {
         }
         brokerAcknowledged = true
         try Task.checkCancellation()
+        setPhase("apply_wifi")
         applySent = true
         _ = try Wire.response(await transport.exchange("prov-config", Wire.config(4)), kind: 5, field: 15)
     }
     func wifiConnected() async throws -> Bool {
+        setPhase("wifi_status")
         let status = try Wire.response(await transport.exchange("prov-config", Wire.config(0)), kind: 1, field: 11)
         switch try Wire.number(status, 2) {
         case 0: return true
