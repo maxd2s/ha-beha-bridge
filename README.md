@@ -18,6 +18,11 @@ See [LAN installation and capabilities](beha_lan/DOCS.md),
 [per-heater BLE provisioning](tools/PROVISIONING.md), and the
 [dashboard generator](tools/heaters_dashboard.py).
 
+An [iPhone provisioning helper](ios/README.md) is also available as a native Xcode
+project, so the setup device can be carried to each heater. Its iOS Bluetooth
+migration is awaiting a real-device validation; the existing Python path has been
+verified on a Gen 2 heater.
+
 Verified on Gen 2 firmware 2.3: local target commands, physical dial feedback,
 periodic temperatures, operation with WAN blocked after boot, and broker setting
 persistence over a normal reboot. Other firmware, cold boot without WAN, and

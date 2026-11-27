@@ -1,0 +1,8 @@
+{
+  "ssid": "Your existing Wi-Fi name",
+  "password": "replace-with-your-wifi-password",
+  "broker_uri": "mqtt://heater-user:replace-with-broker-password@192.0.2.10:1883",
+  "heaters": [
+    {"name": "Example room", "device_id": "aabbccddeeff"}
+  ]
+}

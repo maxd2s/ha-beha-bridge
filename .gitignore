@@ -29,3 +29,12 @@ Thumbs.db
 *-wifi.json
 *-broker.json
 *.private.json
+
+# iOS generated artifacts, local signing and credential-bearing setup profiles
+ios/.build/
+ios/.swiftpm/
+ios/DerivedData/
+**/xcuserdata/
+*.xcuserstate
+*.beha-setup
+ios/Signing.local.xcconfig

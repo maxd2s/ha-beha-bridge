@@ -1,0 +1,348 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		365BA3B7C8F6F9FEF3B4C8E8 /* ProvisioningProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F1DEF57C2D48AAFA141052 /* ProvisioningProtocol.swift */; };
+		7387F3547AD4417F7C5D05F0 /* BluetoothLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23C6547C9C7FF8F89E909D51 /* BluetoothLink.swift */; };
+		972C03CA9CE8B4CC2D6EB145 /* SetupModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B7A0DB488FEEC882CAFB418 /* SetupModel.swift */; };
+		B5434AB2A43A0ACEFE0662CD /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6210108216351F5E53E19042 /* Assets.xcassets */; };
+		C87AB3D2B1674734808F9DD8 /* MQTTWire.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44AD830178A55E1054EFFEE0 /* MQTTWire.swift */; };
+		DAFFE1D74007E4842EB1F691 /* SetupProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCA5DDD1F122C0A16D65875 /* SetupProfile.swift */; };
+		F6E5A01AC4EAFB060E6BF58C /* BehaSetupApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C7ACC12817DED8E638F0176 /* BehaSetupApp.swift */; };
+		FABD2DA36CC59F0620CAF0A3 /* MQTTVerifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A58DD530AA1FE24BDC4DB82B /* MQTTVerifier.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		1B7A0DB488FEEC882CAFB418 /* SetupModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupModel.swift; sourceTree = "<group>"; };
+		23C6547C9C7FF8F89E909D51 /* BluetoothLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothLink.swift; sourceTree = "<group>"; };
+		2CCA5DDD1F122C0A16D65875 /* SetupProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupProfile.swift; sourceTree = "<group>"; };
+		44AD830178A55E1054EFFEE0 /* MQTTWire.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MQTTWire.swift; sourceTree = "<group>"; };
+		4C7ACC12817DED8E638F0176 /* BehaSetupApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BehaSetupApp.swift; sourceTree = "<group>"; };
+		6210108216351F5E53E19042 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		9CD4063812663714383E7489 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		A1F1DEF57C2D48AAFA141052 /* ProvisioningProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProvisioningProtocol.swift; sourceTree = "<group>"; };
+		A58DD530AA1FE24BDC4DB82B /* MQTTVerifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MQTTVerifier.swift; sourceTree = "<group>"; };
+		B38C28BC10E7CFB23A190C60 /* BehaSetup.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BehaSetup.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		2B9B5E63E66A3DE6354EF21C /* App */ = {
+			isa = PBXGroup;
+			children = (
+				4C7ACC12817DED8E638F0176 /* BehaSetupApp.swift */,
+				23C6547C9C7FF8F89E909D51 /* BluetoothLink.swift */,
+				A58DD530AA1FE24BDC4DB82B /* MQTTVerifier.swift */,
+				1B7A0DB488FEEC882CAFB418 /* SetupModel.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		3A22A462A0FE80E4DC6DF0C1 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B38C28BC10E7CFB23A190C60 /* BehaSetup.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A1115FFFC0376D5139A3D891 /* BehaSetup */ = {
+			isa = PBXGroup;
+			children = (
+				6210108216351F5E53E19042 /* Assets.xcassets */,
+				9CD4063812663714383E7489 /* Info.plist */,
+				2B9B5E63E66A3DE6354EF21C /* App */,
+				ADAEFFC303F8A2A24535B44C /* Core */,
+			);
+			path = BehaSetup;
+			sourceTree = "<group>";
+		};
+		ADAEFFC303F8A2A24535B44C /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				44AD830178A55E1054EFFEE0 /* MQTTWire.swift */,
+				A1F1DEF57C2D48AAFA141052 /* ProvisioningProtocol.swift */,
+				2CCA5DDD1F122C0A16D65875 /* SetupProfile.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		B0B39792330AAD53ABC55C49 = {
+			isa = PBXGroup;
+			children = (
+				A1115FFFC0376D5139A3D891 /* BehaSetup */,
+				3A22A462A0FE80E4DC6DF0C1 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		6BEF5FB4FFF82A140A762CE5 /* BehaSetup */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FD9392F068D793FE59BFD2A7 /* Build configuration list for PBXNativeTarget "BehaSetup" */;
+			buildPhases = (
+				1B8FE9EF7838FD420EFEB700 /* Sources */,
+				C3E1EC1F7AD6AAFB96DA66DF /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BehaSetup;
+			packageProductDependencies = (
+			);
+			productName = BehaSetup;
+			productReference = B38C28BC10E7CFB23A190C60 /* BehaSetup.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		EAF94503926A378AD73BBD08 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					6BEF5FB4FFF82A140A762CE5 = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = FD92F2244B42A18A7C7D339A /* Build configuration list for PBXProject "BehaSetup" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = B0B39792330AAD53ABC55C49;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 3A22A462A0FE80E4DC6DF0C1 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				6BEF5FB4FFF82A140A762CE5 /* BehaSetup */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C3E1EC1F7AD6AAFB96DA66DF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B5434AB2A43A0ACEFE0662CD /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1B8FE9EF7838FD420EFEB700 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F6E5A01AC4EAFB060E6BF58C /* BehaSetupApp.swift in Sources */,
+				7387F3547AD4417F7C5D05F0 /* BluetoothLink.swift in Sources */,
+				FABD2DA36CC59F0620CAF0A3 /* MQTTVerifier.swift in Sources */,
+				C87AB3D2B1674734808F9DD8 /* MQTTWire.swift in Sources */,
+				365BA3B7C8F6F9FEF3B4C8E8 /* ProvisioningProtocol.swift in Sources */,
+				972C03CA9CE8B4CC2D6EB145 /* SetupModel.swift in Sources */,
+				DAFFE1D74007E4842EB1F691 /* SetupProfile.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		14BE0FEECCDC0549C2FC4470 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = BehaSetup/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.beha-community.local-setup";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		2E8BBE8C547FCDA2E31B0897 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		8292EBCAC64A6810AAF357DE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		F23CE4C865DB3390C0759698 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = BehaSetup/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.beha-community.local-setup";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FD92F2244B42A18A7C7D339A /* Build configuration list for PBXProject "BehaSetup" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8292EBCAC64A6810AAF357DE /* Debug */,
+				2E8BBE8C547FCDA2E31B0897 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		FD9392F068D793FE59BFD2A7 /* Build configuration list for PBXNativeTarget "BehaSetup" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F23CE4C865DB3390C0759698 /* Debug */,
+				14BE0FEECCDC0549C2FC4470 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = EAF94503926A378AD73BBD08 /* Project object */;
+}
