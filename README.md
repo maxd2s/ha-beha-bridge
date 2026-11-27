@@ -10,7 +10,8 @@ THIS IS NOT OFFICIAL BEHA ADD-ON
 
 **BEHA LAN Bridge** is available alongside the original cloud bridge. On supported
 Gen 2 heaters it reads physical dial changes directly over local MQTT and controls
-the target without BEHA cloud authentication. The code accepts any heater ID and
+target temperature, power, child lock and control mode without BEHA cloud authentication.
+Controls update only from heater-confirmed readings. The code accepts any heater ID and
 name; no home-specific credentials are included.
 
 Add this repository to the HA app store and install **BEHA LAN Bridge**.
@@ -23,10 +24,12 @@ project, so the setup device can be carried to each heater. Its iOS Bluetooth
 migration is awaiting a real-device validation; the existing Python path has been
 verified on a Gen 2 heater.
 
-Verified on Gen 2 firmware 2.3: local target commands, physical dial feedback,
-periodic temperatures, operation with WAN blocked after boot, and broker setting
-persistence over a normal reboot. Other firmware, cold boot without WAN, and
-local power/schedule commands remain unverified. Each heater must be provisioned
+Verified on Gen 2 firmware 2.3: local target, power and child-lock commands,
+all five control-mode selections, physical dial feedback, periodic temperatures,
+operation with WAN blocked after boot, and broker setting persistence over a
+normal reboot. Weekly schedule selection activates an existing program; schedule
+editing is not implemented. Other firmware and cold boot without WAN remain
+unverified. Each heater must be provisioned
 individually before its LAN entities become available. The cloud bridge below
 can continue serving heaters that have not migrated.
 

@@ -1,7 +1,8 @@
 # Readable diagnostic values
 
 These labels come from static analysis of the official Gen 2 firmware 2.3 image,
-with local-dial and remote-target transitions also verified on a running heater.
+with all five mode selections and both lock states verified through HA writes
+and fresh heater telemetry on 2026-11-27.
 The mode selector retains its `raw_code` attribute. Unknown control values display
 unknown and are never offered as writable options.
 
@@ -37,6 +38,13 @@ Power-off sends mode 0. Power-on restores the last observed mode 1–4, or uses
 mode 3 when there is no observed previous enabled mode. Weekly schedule uses
 the existing stored schedule. Neither sending a command nor receiving a broker
 acknowledgement updates HA state; only a fresh heater report does.
+
+Live validation of version 0.1.3 confirmed power off/on through both switches
+and climate controls, lock/unlock, and Local dial/Remote target selection on
+four Gen 2 heaters with WAN blocked. Frost protection and Weekly schedule
+selection were additionally confirmed on one heater. This verifies mode
+selection and reported state, not the execution of a complete weekly program.
+All original targets, modes and lock settings were restored after testing.
 
 ## Reproducible firmware evidence
 
