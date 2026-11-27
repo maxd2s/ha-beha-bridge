@@ -6,6 +6,27 @@
 
 THIS IS NOT OFFICIAL BEHA ADD-ON
 
+## New: local LAN control
+
+**BEHA LAN Bridge** is available alongside the original cloud bridge. On supported
+Gen 2 heaters it reads physical dial changes directly over local MQTT and controls
+the target without BEHA cloud authentication. The code accepts any heater ID and
+name; no home-specific credentials are included.
+
+Add this repository to the HA app store and install **BEHA LAN Bridge**.
+See [LAN installation and capabilities](beha_lan/DOCS.md),
+[per-heater BLE provisioning](tools/PROVISIONING.md), and the
+[dashboard generator](tools/heaters_dashboard.py).
+
+Verified on Gen 2 firmware 2.3: local target commands, physical dial feedback,
+periodic temperatures, operation with WAN blocked after boot, and broker setting
+persistence over a normal reboot. Other firmware, cold boot without WAN, and
+local power/schedule commands remain unverified. Each heater must be provisioned
+individually before its LAN entities become available. The cloud bridge below
+can continue serving heaters that have not migrated.
+
+## Original cloud bridge
+
 A Home Assistant add-on that bridges **BEHA SmartHeaters** (WiFi Gen1/Gen2) to Home Assistant via MQTT, providing full climate control including temperature adjustment and native on/off toggle.
 
 ## Features

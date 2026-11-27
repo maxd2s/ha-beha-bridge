@@ -23,3 +23,9 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Private reverse-engineering workspace and local provisioning credentials
+/beha-heaters-lan/
+*-wifi.json
+*-broker.json
+*.private.json

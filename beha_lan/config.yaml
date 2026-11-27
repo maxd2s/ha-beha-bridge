@@ -1,0 +1,24 @@
+name: BEHA LAN Bridge
+version: "0.1.0"
+slug: beha_lan
+description: Local MQTT control and live dial feedback for provisioned BEHA Gen 2 heaters
+url: https://github.com/maxd2s/ha-beha-bridge
+arch:
+  - aarch64
+  - amd64
+  - armv7
+startup: services
+boot: auto
+init: false
+services:
+  - mqtt:need
+options:
+  auto_discover: false
+  stale_after: 90
+  heaters: []
+schema:
+  auto_discover: bool
+  stale_after: int(60,600)
+  heaters:
+    - device_id: str
+      name: str
