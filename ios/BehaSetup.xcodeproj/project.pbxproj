@@ -10,6 +10,7 @@
 		365BA3B7C8F6F9FEF3B4C8E8 /* ProvisioningProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F1DEF57C2D48AAFA141052 /* ProvisioningProtocol.swift */; };
 		525CF0333095A9D30FF48BDC /* Diagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21A352D3E18CB945D5468C02 /* Diagnostics.swift */; };
 		7387F3547AD4417F7C5D05F0 /* BluetoothLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23C6547C9C7FF8F89E909D51 /* BluetoothLink.swift */; };
+		8B6BB0D701391EACBB36774B /* EndpointMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16313489CCA944C7F8261A93 /* EndpointMap.swift */; };
 		972C03CA9CE8B4CC2D6EB145 /* SetupModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B7A0DB488FEEC882CAFB418 /* SetupModel.swift */; };
 		B5434AB2A43A0ACEFE0662CD /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6210108216351F5E53E19042 /* Assets.xcassets */; };
 		C87AB3D2B1674734808F9DD8 /* MQTTWire.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44AD830178A55E1054EFFEE0 /* MQTTWire.swift */; };
@@ -20,6 +21,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		16313489CCA944C7F8261A93 /* EndpointMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EndpointMap.swift; sourceTree = "<group>"; };
 		1B7A0DB488FEEC882CAFB418 /* SetupModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupModel.swift; sourceTree = "<group>"; };
 		21A352D3E18CB945D5468C02 /* Diagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diagnostics.swift; sourceTree = "<group>"; };
 		23C6547C9C7FF8F89E909D51 /* BluetoothLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothLink.swift; sourceTree = "<group>"; };
@@ -70,6 +72,7 @@
 			isa = PBXGroup;
 			children = (
 				21A352D3E18CB945D5468C02 /* Diagnostics.swift */,
+				16313489CCA944C7F8261A93 /* EndpointMap.swift */,
 				44AD830178A55E1054EFFEE0 /* MQTTWire.swift */,
 				A1F1DEF57C2D48AAFA141052 /* ProvisioningProtocol.swift */,
 				2CCA5DDD1F122C0A16D65875 /* SetupProfile.swift */,
@@ -159,6 +162,7 @@
 				7387F3547AD4417F7C5D05F0 /* BluetoothLink.swift in Sources */,
 				EC54AF696643532894085BA2 /* DiagnosticStore.swift in Sources */,
 				525CF0333095A9D30FF48BDC /* Diagnostics.swift in Sources */,
+				8B6BB0D701391EACBB36774B /* EndpointMap.swift in Sources */,
 				FABD2DA36CC59F0620CAF0A3 /* MQTTVerifier.swift in Sources */,
 				C87AB3D2B1674734808F9DD8 /* MQTTWire.swift in Sources */,
 				365BA3B7C8F6F9FEF3B4C8E8 /* ProvisioningProtocol.swift in Sources */,
@@ -222,7 +226,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -235,7 +239,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 0.1.1;
+				MARKETING_VERSION = 0.1.2;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -281,7 +285,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -300,7 +304,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 0.1.1;
+				MARKETING_VERSION = 0.1.2;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

@@ -2,6 +2,31 @@ import XCTest
 @testable import BehaSetupCore
 
 final class ProtocolTests: XCTestCase {
+    func testAdvertisedEndpointNamesOverrideSwappedUUIDOffsets() throws {
+        var mapping = EndpointMap()
+        // A session request sent to a guessed config endpoint can look like a
+        // GetStatus request. Resolve by descriptor before any protocol exchange.
+        let configUUID = UUID(uuidString: "9097ff50-abaa-7492-6f4a-63694d6ef6a3")!
+        let sessionUUID = UUID(uuidString: "9097ff51-abaa-7492-6f4a-63694d6ef6a3")!
+        try mapping.add(description: Data("prov-config\0".utf8), uuid: configUUID)
+        try mapping.add(description: Data("prov-session".utf8), uuid: sessionUUID)
+        for name in EndpointMap.required.subtracting(["prov-session", "prov-config"]) {
+            try mapping.add(description: Data(name.utf8), uuid: UUID())
+        }
+        let resolved = try mapping.resolved()
+        XCTAssertEqual(resolved["prov-session"], sessionUUID)
+        XCTAssertEqual(resolved["prov-config"], configUUID)
+    }
+    func testMissingOrConflictingDescriptorsStopWithoutFallback() throws {
+        var mapping = EndpointMap()
+        let id = UUID()
+        try mapping.add(description: Data("cloud_token".utf8), uuid: id)
+        XCTAssertTrue(mapping.entries.isEmpty)
+        XCTAssertThrowsError(try mapping.resolved())
+        try mapping.add(description: Data("prov-session".utf8), uuid: id)
+        XCTAssertThrowsError(try mapping.add(description: Data("prov-session".utf8), uuid: UUID()))
+        XCTAssertThrowsError(try mapping.add(description: Data("prov-config".utf8), uuid: id))
+    }
     func testDiagnosticReportExcludesCredentialsAndNSErrorPayloads() throws {
         let secret = "SECRET_MUST_NOT_APPEAR"
         var report = DiagnosticReport(appVersion: "test", systemVersion: "test")

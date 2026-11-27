@@ -125,6 +125,13 @@ changed by this diagnostic update.
 sequence. `App/` contains the SwiftUI UI, bounded CoreBluetooth transport and a
 small read-only MQTT 3.1.1 client using Network.framework. It uses only public iOS
 APIs; the private macOS pairing API from the Python experiment is not used.
-Known characteristic UUIDs and firmware 2.3 are checked before any settings write.
+Endpoint names are resolved from GATT User Description descriptors (0x2901),
+matching the working Python provisioner. Missing or ambiguous names stop setup;
+there is no guessed UUID fallback. Firmware 2.3 is checked before settings writes.
 MQTT credentials are used for a clean, uniquely named observer connection; the
 observer never takes the heater's MQTT client ID.
+
+Version 0.1.2 corrects the original port's fixed endpoint UUID lookup. A real
+iPhone report showed successful GATT I/O followed by an invalid session response
+before any settings writes. The descriptor mapping and its resolved UUIDs are now
+included in diagnostics, and swapped/missing/duplicate mappings have regression tests.

@@ -28,7 +28,7 @@ struct NearbyHeater: Identifiable {
     private var scanDeadline: Task<Void, Never>?
     private var expectedCharacteristic: CBUUID?
     private static let service = CBUUID(string: "9097f5e0-abaa-7492-6f4a-63694d6ef6a3")
-    private static let endpoints = ["prov-session": "ff50", "prov-config": "ff51", "proto-ver": "ff53", "version": "ff54", "device_id": "ff56", "custom_data": "ff5b"]
+    private static let userDescription = CBUUID(string: "2901")
 
     override init() {
         super.init()
@@ -96,15 +96,25 @@ struct NearbyHeater: Identifiable {
         _ = try await wait("services") { device.discoverServices([Self.service]) }
         guard let service = device.services?.first(where: { $0.uuid == Self.service }) else { throw SetupFailure("Expected BEHA service was not found.") }
         _ = try await wait("characteristics") { device.discoverCharacteristics(nil, for: service) }
-        for (name, short) in Self.endpoints {
-            let uuid = CBUUID(string: "9097\(short)-abaa-7492-6f4a-63694d6ef6a3")
-            guard let characteristic = service.characteristics?.first(where: { $0.uuid == uuid }),
+        var mapping = EndpointMap()
+        for characteristic in service.characteristics ?? [] {
+            expectedCharacteristic = characteristic.uuid; endpoint = "descriptor_lookup"
+            _ = try await wait("descriptors") { device.discoverDescriptors(for: characteristic) }
+            for descriptor in characteristic.descriptors ?? [] where descriptor.uuid == Self.userDescription {
+                let description = try await wait("descriptor_read") { device.readValue(for: descriptor) }
+                guard let uuid = UUID(uuidString: characteristic.uuid.uuidString) else { continue }
+                try mapping.add(description: description, uuid: uuid)
+            }
+        }
+        for (name, uuid) in try mapping.resolved() {
+            guard let characteristic = service.characteristics?.first(where: { $0.uuid == CBUUID(nsuuid: uuid) }),
                   characteristic.properties.contains(.read), characteristic.properties.contains(.write) else {
                 throw SetupFailure("This heater’s provisioning endpoints are unsupported.")
             }
             characteristics[name] = characteristic
-            diagnostic?("endpoint_discovered", ["endpoint": name, "properties": String(characteristic.properties.rawValue)], nil)
+            diagnostic?("endpoint_mapped_from_descriptor", ["endpoint": name, "characteristic_uuid": uuid.uuidString, "properties": String(characteristic.properties.rawValue)], nil)
         }
+        endpoint = ""; expectedCharacteristic = nil
     }
     func disconnect() {
         finish(.failure(CancellationError()))
@@ -144,6 +154,15 @@ struct NearbyHeater: Identifiable {
     }
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
         guard peripheral === peer, operation == "characteristics" else { return }; complete(error)
+    }
+    func peripheral(_ peripheral: CBPeripheral, didDiscoverDescriptorsFor characteristic: CBCharacteristic, error: Error?) {
+        guard peripheral === peer, operation == "descriptors", characteristic.uuid == expectedCharacteristic else { return }; complete(error)
+    }
+    func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor descriptor: CBDescriptor, error: Error?) {
+        guard peripheral === peer, operation == "descriptor_read", descriptor.characteristic?.uuid == expectedCharacteristic,
+              descriptor.uuid == Self.userDescription else { return }
+        if let text = descriptor.value as? String { complete(error, value: Data(text.utf8)) }
+        else { complete(error, value: descriptor.value as? Data) }
     }
     func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
         guard peripheral === peer, operation == "write", characteristic.uuid == expectedCharacteristic else { return }; complete(error)
