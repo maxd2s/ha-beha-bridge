@@ -82,7 +82,7 @@ import Combine
                     let identity = try await session.inspect(expectedID: id)
                     self.identity = identity; inspectedID = id; inspectedProfile = checked
                     steps.append("Full heater ID verified")
-                    diagnostics.record("identity_verified", ["device_id": id, "firmware_supported": String(identity.supported)])
+                    diagnostics.record("identity_verified", ["device_id": id, "firmware_supported": String(identity.supported), "firmware": identity.diagnosticFirmware])
                     message = identity.supported ? "Ready. Review the heater and Wi-Fi, then tap Migrate." : "Firmware \(identity.firmware) has not been validated. No settings written."
                 } catch {
                     recordOutcome("inspection_failed", error: error)

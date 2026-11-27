@@ -46,7 +46,10 @@ struct DiagnosticReport: Codable {
     }
     mutating func record(_ event: String, details: [String: String] = [:], error: Error? = nil) {
         let keys: Set<String> = ["operation", "endpoint", "characteristic_uuid", "bluetooth_state", "authorization", "properties", "byte_count", "outcome", "settings_may_have_changed", "broker_acknowledged", "apply_sent", "device_id", "rssi", "firmware_supported"]
-        let safe = details.filter { keys.contains($0.key) }.mapValues { String($0.prefix(120)) }
+        var safe = details.filter { keys.contains($0.key) }.mapValues { String($0.prefix(120)) }
+        if let firmware = details["firmware"] {
+            safe["firmware"] = HeaterIdentity(deviceID: "", firmware: firmware).diagnosticFirmware
+        }
         events.append(DiagnosticEvent(time: Date(), event: String(event.prefix(80)), details: safe, error: error.map(DiagnosticError.init)))
         if events.count > 200 { events.removeFirst(events.count - 200) }
     }

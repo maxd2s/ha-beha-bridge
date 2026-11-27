@@ -3,12 +3,31 @@ import XCTest
 
 final class ProtocolTests: XCTestCase {
     func testFirmwareLabelMatchesActualOfficeResponseWithoutAcceptingOtherVersions() {
-        for version in ["smartheater-mk2- 2.3", "smartheater-mk2-2.3"] {
+        for version in ["smartheater-mk2- 2.2", "smartheater-mk2-2.2", "smartheater-mk2- 2.3", "smartheater-mk2-2.3"] {
             XCTAssertTrue(HeaterIdentity(deviceID: "aabbccddeeff", firmware: version).supported)
         }
-        for version in ["smartheater-mk2- 2.2", "smartheater-mk2-2.30", "smartheater-mk2-2.3-beta", "smartheater-mk1-2.3", "2.3"] {
+        for version in ["smartheater-mk2- 2.1", "smartheater-mk2-2.20", "smartheater-mk2-2.30", "smartheater-mk2-2.3-beta", "smartheater-mk1-2.3", "2.3"] {
             XCTAssertFalse(HeaterIdentity(deviceID: "aabbccddeeff", firmware: version).supported)
         }
+    }
+    func testFirmwareDiagnosticsKeepNumericVersionWithoutArbitraryEndpointText() {
+        var report = DiagnosticReport(appVersion: "test", systemVersion: "test")
+        report.record("identity_verified", details: ["firmware": "smartheater-mk2- 2.2"])
+        XCTAssertEqual(report.events.last?.details["firmware"], "smartheater-mk2-2.2")
+        for value in ["SECRET_MUST_NOT_APPEAR", "smartheater-mk2-2.2 SECRET_MUST_NOT_APPEAR"] {
+            report.record("identity_verified", details: ["firmware": value])
+            XCTAssertEqual(report.events.last?.details["firmware"], "unrecognized")
+        }
+    }
+    @MainActor func testAnalyzedFirmware22UsesAcknowledgedMigrationSequence() async throws {
+        let transport = FakeTransport(); transport.firmware = "smartheater-mk2- 2.2"
+        let session = ProvisioningSession(transport)
+        let identity = try await session.inspect(expectedID: "aabbccddeeff")
+        XCTAssertTrue(identity.requiresFirstLiveValidation)
+        try await session.apply(validProfile)
+        XCTAssertTrue(session.brokerAcknowledged)
+        XCTAssertTrue(session.applySent)
+        XCTAssertEqual(transport.calls.suffix(3).map(\.0), ["prov-config", "custom_data", "prov-config"])
     }
     func testAdvertisedEndpointNamesOverrideSwappedUUIDOffsets() throws {
         var mapping = EndpointMap()

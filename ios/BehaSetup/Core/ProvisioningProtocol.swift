@@ -74,10 +74,17 @@ enum Wire {
 struct HeaterIdentity: Equatable {
     let deviceID: String
     let firmware: String
-    var supported: Bool {
+    private var versionNumber: String? {
         let prefix = "smartheater-mk2-"
-        guard firmware.hasPrefix(prefix) else { return false }
-        return firmware.dropFirst(prefix.count).trimmingCharacters(in: .whitespacesAndNewlines) == "2.3"
+        guard firmware.hasPrefix(prefix) else { return nil }
+        return firmware.dropFirst(prefix.count).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    var supported: Bool { versionNumber == "2.2" || versionNumber == "2.3" }
+    var requiresFirstLiveValidation: Bool { versionNumber == "2.2" }
+    // Log only a recognized model/numeric version, never arbitrary endpoint text.
+    var diagnosticFirmware: String {
+        guard let versionNumber, versionNumber.range(of: #"^[0-9]{1,3}(\.[0-9]{1,3}){1,3}$"#, options: .regularExpression) != nil else { return "unrecognized" }
+        return "smartheater-mk2-" + versionNumber
     }
 }
 
@@ -138,7 +145,7 @@ struct HeaterIdentity: Equatable {
     }
     func apply(_ profile: SetupProfile) async throws {
         let profile = try profile.validated()
-        guard let identity, identity.supported else { throw SetupFailure("Verify a supported Gen 2 firmware 2.3 heater first.") }
+        guard let identity, identity.supported else { throw SetupFailure("Verify a supported Gen 2 firmware 2.2 or 2.3 heater first.") }
         try Task.checkCancellation()
         setPhase("stage_wifi")
         settingsMayHaveChanged = true // Even an acknowledgement timeout can follow a successful write.
