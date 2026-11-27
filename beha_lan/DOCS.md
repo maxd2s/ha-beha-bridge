@@ -38,25 +38,27 @@ Only one instance of this bridge should run on a broker with the default topics.
 
 - Set targets from 5–30°C in 0.5°C steps; HA updates from the heater's actual reply.
 - Read physical dial target changes, measured temperature and last-reading time.
-- See readable control mode, child lock and alarm status, with raw codes in attributes.
+- Turn each heater off/on from its power switch or thermostat.
+- Read and change child lock and control mode; all displayed states follow heater telemetry.
 - Receive periodic reports roughly every 30 seconds and extra reports on dial changes.
 - Mark an individual heater unavailable after 90 seconds without valid fresh data.
 - See bridge health separately from individual heater availability.
 
-The climate exposes a temperature control with `heat` as its sole supported mode.
-Observed heater mode codes 2 and 3 map to `heat`; other modes display unknown.
-This does **not** establish whether the heating element is actively energized.
-Power off/on, child-lock writes, schedules, heating-action detection and firmware
-updates are not implemented. No speculative mode codes are sent to heaters.
+The climate exposes `off` and `heat`. Heater mode 0 maps to `off`; modes 1–4 map
+to `heat` (enabled), without claiming the heating element is currently energized.
+Power-on resumes the last enabled mode observed during this bridge process. If
+the bridge starts with the heater off and has no previous enabled mode, it uses
+Remote target. Changing the target temperature selects Remote target in firmware.
 
 Control mode labels are Off (0), Frost protection at 5°C (1), Local dial (2),
 Remote target (3), and Weekly schedule (4). Child lock is Unlocked (0) or Locked (1).
-Unknown values remain explicitly unknown. These mappings describe the firmware's
-control state; they do not add power or schedule commands to the bridge.
+Unknown values remain explicitly unknown. Selecting Weekly schedule activates
+the schedule already stored in the heater; this does not create or edit a schedule.
+Heating-action detection, schedule editing and firmware updates are not implemented.
 
-**Alarm limitation:** firmware 2.3 hardcodes `alarm_flags` to zero. The display
-therefore says **No flags reported**, not “No faults.” Nonzero flags from another
-firmware are shown as unknown with their hexadecimal value. See [protocol evidence](PROTOCOL.md).
+**Alarm limitation:** firmware 2.3 hardcodes `alarm_flags` to zero, so the bridge
+does not expose alarm status. Upgrading removes the old alarm sensor and replaces
+read-only mode/lock sensors with controls. See [protocol evidence](PROTOCOL.md).
 
 The last-reading sensor stays visible when offline so its age continues increasing.
 Retained raw telemetry never establishes freshness. Retained and delayed commands
@@ -71,7 +73,9 @@ command is lost, the displayed target stays unchanged and you can retry.
 ## Dashboard
 
 The default entity IDs are `climate.beha_lan_<device_id>` and
-`sensor.beha_lan_<device_id>_last_reading`. Renaming entities in HA overrides these.
+`sensor.beha_lan_<device_id>_last_reading`, plus
+`switch.beha_lan_<device_id>_power`, `switch.beha_lan_<device_id>_child_lock`, and
+`select.beha_lan_<device_id>_heater_mode`. Renaming entities in HA overrides these.
 Generate a dashboard for any heater list using:
 
 ```sh

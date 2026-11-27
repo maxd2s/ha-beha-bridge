@@ -34,7 +34,16 @@
               "type": "thermostat",
               "entity": "climate.beha_lan_001122334455",
               "name": "Study",
-              "show_current_as_primary": true
+              "show_current_as_primary": true,
+              "features": [
+                {
+                  "type": "climate-hvac-modes",
+                  "hvac_modes": [
+                    "off",
+                    "heat"
+                  ]
+                }
+              ]
             },
             {
               "type": "markdown",
@@ -48,22 +57,18 @@
               "show_header_toggle": false,
               "entities": [
                 {
-                  "entity": "sensor.beha_lan_001122334455_heater_mode",
-                  "name": "Control mode"
+                  "entity": "switch.beha_lan_001122334455_power",
+                  "name": "Power"
                 },
                 {
-                  "entity": "sensor.beha_lan_001122334455_child_lock",
+                  "entity": "switch.beha_lan_001122334455_child_lock",
                   "name": "Child lock"
                 },
                 {
-                  "entity": "sensor.beha_lan_001122334455_alarm_flags",
-                  "name": "Alarm status"
+                  "entity": "select.beha_lan_001122334455_heater_mode",
+                  "name": "Control mode"
                 }
               ]
-            },
-            {
-              "type": "markdown",
-              "content": "Firmware 2.3 always reports zero alarm flags; this does not confirm the heater is fault-free."
             }
           ]
         },
@@ -74,7 +79,16 @@
               "type": "thermostat",
               "entity": "climate.beha_lan_aabbccddeeff",
               "name": "Bedroom",
-              "show_current_as_primary": true
+              "show_current_as_primary": true,
+              "features": [
+                {
+                  "type": "climate-hvac-modes",
+                  "hvac_modes": [
+                    "off",
+                    "heat"
+                  ]
+                }
+              ]
             },
             {
               "type": "markdown",
@@ -88,22 +102,18 @@
               "show_header_toggle": false,
               "entities": [
                 {
-                  "entity": "sensor.beha_lan_aabbccddeeff_heater_mode",
-                  "name": "Control mode"
+                  "entity": "switch.beha_lan_aabbccddeeff_power",
+                  "name": "Power"
                 },
                 {
-                  "entity": "sensor.beha_lan_aabbccddeeff_child_lock",
+                  "entity": "switch.beha_lan_aabbccddeeff_child_lock",
                   "name": "Child lock"
                 },
                 {
-                  "entity": "sensor.beha_lan_aabbccddeeff_alarm_flags",
-                  "name": "Alarm status"
+                  "entity": "select.beha_lan_aabbccddeeff_heater_mode",
+                  "name": "Control mode"
                 }
               ]
-            },
-            {
-              "type": "markdown",
-              "content": "Firmware 2.3 always reports zero alarm flags; this does not confirm the heater is fault-free."
             }
           ]
         }

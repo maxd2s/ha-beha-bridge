@@ -15,13 +15,14 @@ import time
 
 import paho.mqtt.client as mqtt
 
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 PREFIX = "beha_lan"
 BRIDGE = f"{PREFIX}/bridge/availability"
 ID = re.compile(r"^[0-9a-f]{12}$")
 LOG = logging.getLogger(__name__)
 HEATER_MODES = {0: "Off", 1: "Frost protection (5°C)", 2: "Local dial",
                 3: "Remote target", 4: "Weekly schedule"}
+COMMANDS = ("target", "power", "hvac_mode", "heater_mode", "child_lock")
 
 
 def diagnostic_label(key, value):
@@ -30,10 +31,6 @@ def diagnostic_label(key, value):
         return HEATER_MODES.get(value, f"Unknown mode ({value})")
     if key == "child_lock":
         return {0: "Unlocked", 1: "Locked"}.get(value, f"Unknown lock state ({value})")
-    if key == "alarm_flags":
-        # Firmware 2.3 hardcodes zero in its JSON format string. Zero is not
-        # evidence of a functioning alarm monitor or an absence of faults.
-        return "No flags reported" if value == 0 else f"Unknown alarm flags (0x{value:X})"
     raise ValueError("Unsupported diagnostic")
 
 
@@ -77,11 +74,18 @@ def telemetry(payload):
     if not numeric(target, 0, 35) or not numeric(current, -40, 125):
         raise ValueError("Invalid temperatures")
     result = {"target_temperature": target, "current_temperature": current,
-              "mode": "heat" if beha.get("heater_mode") in (2, 3) else "None"}
-    for key in ("heater_mode", "child_lock", "alarm_flags"):
+              "mode": "None", "power": "None", "child_lock_state": "None",
+              "heater_mode_text": "None"}
+    for key in ("heater_mode", "child_lock"):
         if type(beha.get(key)) is int and 0 <= beha[key] <= 65535:
             result[key] = beha[key]
             result[f"{key}_text"] = diagnostic_label(key, beha[key])
+    mode = result.get("heater_mode")
+    if mode in HEATER_MODES:
+        result["mode"] = "off" if mode == 0 else "heat"
+        result["power"] = "OFF" if mode == 0 else "ON"
+    if result.get("child_lock") in (0, 1):
+        result["child_lock_state"] = "ON" if result["child_lock"] else "OFF"
     # Schedule names/IDs and cloud-token-bearing topics are deliberately not relayed.
     return result
 
@@ -95,6 +99,26 @@ def target_command(payload):
     return json.dumps({"com.devicedrive.heater": {"target_temperature": str(value)}})
 
 
+def control_command(kind, payload, resume_mode=3):
+    if kind == "target":
+        return target_command(payload)
+    if len(payload) > 64:
+        raise ValueError("Oversize command")
+    value = payload.decode("utf-8")
+    if kind in ("power", "hvac_mode"):
+        states = {"ON": True, "OFF": False} if kind == "power" else {"heat": True, "off": False}
+        if value not in states or resume_mode not in (1, 2, 3, 4):
+            raise ValueError("Invalid power command")
+        key, code = "heater_mode", resume_mode if states[value] else 0
+    elif kind == "child_lock" and value in ("ON", "OFF"):
+        key, code = "child_lock", int(value == "ON")
+    elif kind == "heater_mode" and value in HEATER_MODES.values():
+        key, code = "heater_mode", next(code for code, label in HEATER_MODES.items() if label == value)
+    else:
+        raise ValueError("Invalid control command")
+    return json.dumps({"com.beha.heater": {key: str(code)}})
+
+
 class Bridge:
     def __init__(self, client, options, clock=time.monotonic):
         self.client = client
@@ -103,6 +127,7 @@ class Bridge:
         self.seen = {}
         self.online = set()
         self.connected = False
+        self.resume_modes = {}
 
     def publish(self, topic, payload, retain=True, qos=1):
         if isinstance(payload, dict):
@@ -122,7 +147,8 @@ class Bridge:
         self.config("climate", uid, {
             **common, "name": None, "unique_id": f"{uid}_climate",
             "default_entity_id": f"climate.{uid}", "temperature_unit": "C",
-            "min_temp": 5, "max_temp": 30, "temp_step": 0.5, "modes": ["heat"],
+            "min_temp": 5, "max_temp": 30, "temp_step": 0.5, "modes": ["off", "heat"],
+            "mode_command_topic": f"{base}/hvac_mode/set",
             "temperature_command_topic": f"{base}/target/set", "retain": False,
             "temperature_state_topic": f"{base}/state",
             "temperature_state_template": "{{ value_json.target_temperature }}",
@@ -131,18 +157,27 @@ class Bridge:
             "mode_state_topic": f"{base}/state",
             "mode_state_template": "{{ value_json.mode }}",
             "optimistic": False})
-        for key, name in (("heater_mode", "Control mode"), ("child_lock", "Child lock"),
-                          ("alarm_flags", "Alarm status")):
-            attributes = "{{ {'raw_code': value_json." + key + " | default(none)} | tojson }}"
-            if key == "alarm_flags":
-                attributes = ("{{ {'raw_code': value_json.alarm_flags | default(none), "
-                              "'reporting_note': 'Tested firmware 2.3 hardcodes zero; this is not a fault-health check.'} | tojson }}")
-            self.config("sensor", f"{uid}_{key}", {
-                **common, "name": name, "unique_id": f"{uid}_{key}",
-                "default_entity_id": f"sensor.{uid}_{key}", "entity_category": "diagnostic",
-                "state_topic": f"{base}/state",
-                "value_template": "{{ value_json." + key + "_text | default('None') }}",
-                "json_attributes_topic": f"{base}/state", "json_attributes_template": attributes})
+        # Tombstone old retained discovery so upgrades remove read-only duplicates
+        # and the hardcoded alarm entity from Home Assistant.
+        for key in ("heater_mode", "child_lock", "alarm_flags"):
+            self.config("sensor", f"{uid}_{key}", "")
+        for key, name, state, icon in (("power", "Power", "power", "mdi:power"),
+                                       ("child_lock", "Child lock", "child_lock_state", "mdi:lock")):
+            self.config("switch", f"{uid}_{key}", {
+                **common, "name": name, "unique_id": f"{uid}_{key}_switch",
+                "default_entity_id": f"switch.{uid}_{key}", "icon": icon,
+                "command_topic": f"{base}/{key}/set", "state_topic": f"{base}/state",
+                "value_template": "{{ value_json." + state + " | default('None') }}",
+                "payload_on": "ON", "payload_off": "OFF", "optimistic": False,
+                "retain": False, "qos": 0})
+        self.config("select", f"{uid}_heater_mode", {
+            **common, "name": "Control mode", "unique_id": f"{uid}_heater_mode_select",
+            "default_entity_id": f"select.{uid}_heater_mode", "icon": "mdi:tune",
+            "command_topic": f"{base}/heater_mode/set", "state_topic": f"{base}/state",
+            "value_template": "{{ value_json.heater_mode_text if value_json.heater_mode | default(-1) in [0, 1, 2, 3, 4] else 'None' }}",
+            "options": list(HEATER_MODES.values()), "optimistic": False, "retain": False, "qos": 0,
+            "json_attributes_topic": f"{base}/state",
+            "json_attributes_template": "{{ {'raw_code': value_json.heater_mode | default(none)} | tojson }}"})
         self.config("sensor", f"{uid}_last_reading", {
             "device": device, "name": "Last reading", "unique_id": f"{uid}_last_reading",
             "default_entity_id": f"sensor.{uid}_last_reading", "device_class": "timestamp",
@@ -174,7 +209,8 @@ class Bridge:
             self.publish(f"{PREFIX}/{hid}/availability", "offline")
         self.all_discovery()
         self.client.subscribe([("devices/+/messages/events/#", 1),
-                               (f"{PREFIX}/+/target/set", 1), ("homeassistant/status", 1)])
+                               *[(f"{PREFIX}/+/{kind}/set", 0) for kind in COMMANDS],
+                               ("homeassistant/status", 1)])
         self.tick()
 
     def disconnect(self):
@@ -209,19 +245,21 @@ class Bridge:
                 self.discovery(hid)
             self.seen[hid] = received
             self.online.add(hid)
+            if state.get("heater_mode") in (1, 2, 3, 4):
+                self.resume_modes[hid] = state["heater_mode"]
             stamp = (datetime.now(timezone.utc) - timedelta(seconds=max(0, now - received))).isoformat()
             self.publish(f"{PREFIX}/{hid}/state", state)
             self.publish(f"{PREFIX}/{hid}/last_reading", stamp)
             self.publish(f"{PREFIX}/{hid}/availability", "online")
-        elif len(parts) == 4 and parts[0] == PREFIX and parts[2:] == ["target", "set"]:
+        elif len(parts) == 4 and parts[0] == PREFIX and parts[2] in COMMANDS and parts[3] == "set":
             hid = parts[1]
             if now - received > 5 or hid not in self.seen or now - self.seen[hid] >= self.stale_after:
                 LOG.warning("Rejected command: heater has no fresh LAN reading")
                 return
             try:
-                command = target_command(payload)
+                command = control_command(parts[2], payload, self.resume_modes.get(hid, 3))
             except (ValueError, TypeError, UnicodeError):
-                LOG.warning("Rejected invalid temperature command")
+                LOG.warning("Rejected invalid heater command")
                 return
             # Never publish an optimistic state; HA changes only on the heater's reply.
             # QoS 0 avoids paho's outgoing QoS 1 reconnect queue replaying a stale
@@ -229,7 +267,7 @@ class Bridge:
             result = self.publish(f"devices/{hid}/messages/devicebound/command", command,
                                   retain=False, qos=0)
             if result.rc != mqtt.MQTT_ERR_SUCCESS:
-                LOG.warning("Temperature command was not sent; waiting for reconnection")
+                LOG.warning("Heater command was not sent; waiting for reconnection")
 
     def tick(self):
         if not self.connected:

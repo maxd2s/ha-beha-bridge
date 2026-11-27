@@ -1,3 +1,12 @@
+# 0.1.3
+
+- Add device-confirmed power switches, thermostat off/heat commands, child-lock toggles and control-mode selects.
+- Resume the last observed enabled mode on power-on; use Remote target if no previous mode is known.
+- Map Off, Frost protection, Local dial, Remote target and Weekly schedule consistently across controls.
+- Remove hardcoded alarm telemetry and delete its retained discovery entity, together with superseded read-only mode/lock sensors.
+- Preserve stale-device, retained-command and delayed-command rejection for every control.
+- Update generated dashboards with writable controls and explicit thermostat power buttons.
+
 # 0.1.2
 
 - Decode control modes and child lock into readable states using firmware 2.3 evidence.

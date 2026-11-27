@@ -2,8 +2,8 @@
 
 These labels come from static analysis of the official Gen 2 firmware 2.3 image,
 with local-dial and remote-target transitions also verified on a running heater.
-The mode and lock sensors retain their original `raw_code` attribute. New values
-are explicitly unknown, rather than assigned an unverified meaning.
+The mode selector retains its `raw_code` attribute. Unknown control values display
+unknown and are never offered as writable options.
 
 | Field | Code | Display | Evidence |
 |---|---:|---|---|
@@ -18,9 +18,25 @@ are explicitly unknown, rather than assigned an unverified meaning.
 
 Do not treat alarm flags zero as proof that thermal protection, sensors or heating
 hardware are healthy. No alarm bit meanings are exposed by this firmware's JSON
-formatter. Nonzero values are displayed as `Unknown alarm flags (0x...)`.
+formatter. The bridge omits alarm flags and removes the old alarm-status entity.
 Likewise, “Local dial” or “Remote target” does not mean the heating element is
-currently energized. These are read-only diagnostics, not new control commands.
+currently energized.
+
+## Writable controls
+
+The `com.beha.heater` parser at `0x4200a048` accepts `heater_mode` and
+`child_lock` as **JSON strings**, assigns the shared state, and saves it. The
+bridge restricts mode writes to 0–4 and lock writes to 0–1:
+
+```json
+{"com.beha.heater":{"heater_mode":"0"}}
+{"com.beha.heater":{"child_lock":"1"}}
+```
+
+Power-off sends mode 0. Power-on restores the last observed mode 1–4, or uses
+mode 3 when there is no observed previous enabled mode. Weekly schedule uses
+the existing stored schedule. Neither sending a command nor receiving a broker
+acknowledgement updates HA state; only a fresh heater report does.
 
 ## Reproducible firmware evidence
 
@@ -39,4 +55,4 @@ Official image:
 - Shared state: mode byte at `0x3fca00a4`; lock byte at `0x3fca4808`.
 
 These addresses apply to this exact image, not arbitrary firmware versions.
-No faults were induced, and no lock/mode commands were sent to obtain these labels.
+No faults were induced to obtain these labels.

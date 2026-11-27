@@ -38,11 +38,11 @@ class ProvisioningTests(unittest.TestCase):
                     asyncio.run(provision.run(args))
                 scan.assert_not_called()
 
-    def test_dashboard_works_for_any_device_and_contains_no_power_control(self):
+    def test_dashboard_works_for_any_device_with_power_control(self):
         result = dashboard({'heaters': [{'device_id': 'AA:BB:CC:DD:EE:FF', 'name': 'Example'}]})
         encoded = json.dumps(result)
         self.assertIn('climate.beha_lan_aabbccddeeff', encoded)
-        self.assertNotIn('climate-hvac-modes', encoded)
+        self.assertIn('climate-hvac-modes', encoded)
 
 
 if __name__ == '__main__':

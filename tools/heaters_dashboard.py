@@ -18,7 +18,8 @@ def dashboard(options):
         stamp = f'sensor.beha_lan_{hid}_last_reading'
         sections.append({"type": "grid", "cards": [
             {"type": "thermostat", "entity": f"climate.beha_lan_{hid}",
-             "name": heater.get('name') or f'BEHA {hid[-6:]}', "show_current_as_primary": True},
+             "name": heater.get('name') or f'BEHA {hid[-6:]}', "show_current_as_primary": True,
+             "features": [{"type": "climate-hvac-modes", "hvac_modes": ["off", "heat"]}]},
             {"type": "markdown", "entity_id": [stamp], "content":
              "**Connection:** Local MQTT\n\n{% set stamp = states('" + stamp + "') %}\n"
              "{% if as_timestamp(stamp, none) is not none %}\n"
@@ -26,10 +27,9 @@ def dashboard(options):
              "Last reported {{ as_local(as_datetime(stamp)).strftime('%d %b, %H:%M:%S') }}\n"
              "{% else %}\n**Reading age:** Waiting for the first local report\n{% endif %}"},
             {"type": "entities", "show_header_toggle": False, "entities": [
-                {"entity": f"sensor.beha_lan_{hid}_heater_mode", "name": "Control mode"},
-                {"entity": f"sensor.beha_lan_{hid}_child_lock", "name": "Child lock"},
-                {"entity": f"sensor.beha_lan_{hid}_alarm_flags", "name": "Alarm status"}]},
-            {"type": "markdown", "content": "Firmware 2.3 always reports zero alarm flags; this does not confirm the heater is fault-free."}]})
+                {"entity": f"switch.beha_lan_{hid}_power", "name": "Power"},
+                {"entity": f"switch.beha_lan_{hid}_child_lock", "name": "Child lock"},
+                {"entity": f"select.beha_lan_{hid}_heater_mode", "name": "Control mode"}]}]})
     return {"title": "Heaters", "views": [{"title": "Heaters", "path": "overview",
              "type": "sections", "max_columns": 3, "sections": sections}]}
 
