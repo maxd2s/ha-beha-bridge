@@ -11,30 +11,14 @@
           "type": "grid",
           "cards": [
             {
-              "type": "heading",
-              "heading": "LAN bridge",
-              "icon": "mdi:lan-connect"
-            },
-            {
-              "type": "entities",
-              "entities": [
-                "binary_sensor.beha_lan_bridge_health"
-              ]
-            },
-            {
-              "type": "markdown",
-              "content": "Local feedback from each heater. Dial changes update the target automatically. A heater becomes unavailable when its readings stop."
-            }
-          ]
-        },
-        {
-          "type": "grid",
-          "cards": [
-            {
               "type": "custom:beha-thermostat-card",
               "entity": "climate.beha_lan_001122334455",
               "name": "Study",
-              "child_lock_entity": "switch.beha_lan_001122334455_child_lock"
+              "child_lock_entity": "switch.beha_lan_001122334455_child_lock",
+              "grid_options": {
+                "columns": 12,
+                "rows": 6
+              }
             }
           ]
         },
@@ -45,7 +29,11 @@
               "type": "custom:beha-thermostat-card",
               "entity": "climate.beha_lan_aabbccddeeff",
               "name": "Bedroom",
-              "child_lock_entity": "switch.beha_lan_aabbccddeeff_child_lock"
+              "child_lock_entity": "switch.beha_lan_aabbccddeeff_child_lock",
+              "grid_options": {
+                "columns": 12,
+                "rows": 6
+              }
             }
           ]
         }

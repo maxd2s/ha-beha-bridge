@@ -7,10 +7,7 @@ import re
 
 
 def dashboard(options):
-    sections = [{"type": "grid", "cards": [
-        {"type": "heading", "heading": "LAN bridge", "icon": "mdi:lan-connect"},
-        {"type": "entities", "entities": ["binary_sensor.beha_lan_bridge_health"]},
-        {"type": "markdown", "content": "Local feedback from each heater. Dial changes update the target automatically. A heater becomes unavailable when its readings stop."}]}]
+    sections = []
     for heater in options['heaters']:
         hid = heater['device_id'].lower().replace(':', '').replace('-', '')
         if not re.fullmatch('[0-9a-f]{12}', hid):
@@ -18,7 +15,8 @@ def dashboard(options):
         sections.append({"type": "grid", "cards": [
             {"type": "custom:beha-thermostat-card", "entity": f"climate.beha_lan_{hid}",
              "name": heater.get('name') or f'BEHA {hid[-6:]}',
-             "child_lock_entity": f"switch.beha_lan_{hid}_child_lock"}]})
+             "child_lock_entity": f"switch.beha_lan_{hid}_child_lock",
+             "grid_options": {"columns": 12, "rows": 6}}]})
     return {"title": "Heaters", "views": [{"title": "Heaters", "path": "overview",
              "type": "sections", "max_columns": 3, "sections": sections}]}
 
