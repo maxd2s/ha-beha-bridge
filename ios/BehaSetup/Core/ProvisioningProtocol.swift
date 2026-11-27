@@ -67,6 +67,7 @@ enum Wire {
 }
 
 @MainActor protocol ProvisioningTransport: AnyObject {
+    func prepareSecureAccess() async throws
     func exchange(_ endpoint: String, _ data: Data) async throws -> Data
 }
 
@@ -104,6 +105,9 @@ struct HeaterIdentity: Equatable {
     func inspect(expectedID: String) async throws -> HeaterIdentity {
         identity = nil
         let expected = try SetupProfile.deviceID(expectedID)
+        setPhase("bluetooth_secure_access")
+        try await transport.prepareSecureAccess()
+        try Task.checkCancellation()
         setPhase("protocol_information")
         let proto = try await json("proto-ver")
         guard let prov = proto["prov"] as? [String: Any],

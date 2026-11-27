@@ -73,6 +73,11 @@ import Combine
                     try await bluetooth.connect(device.id)
                     let session = ProvisioningSession(bluetooth) { [weak self] phase in
                         self?.diagnostics.record("provisioning_phase", ["operation": phase])
+                        if phase == "bluetooth_secure_access" {
+                            self?.message = "Checking Bluetooth secure access… Accept the iPhone pairing request if shown."
+                        } else if phase == "protocol_information" {
+                            self?.message = "Reading heater identity and firmware…"
+                        }
                     }; self.session = session
                     let identity = try await session.inspect(expectedID: id)
                     self.identity = identity; inspectedID = id; inspectedProfile = checked

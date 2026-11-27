@@ -121,6 +121,18 @@ struct NearbyHeater: Identifiable {
         if let peer { central.cancelPeripheralConnection(peer) }
         peer = nil; connected = false; characteristics = [:]; expectedCharacteristic = nil; endpoint = ""
     }
+    func prepareSecureAccess() async throws {
+        guard let peer, peer.state == .connected, let characteristic = characteristics["proto-ver"] else {
+            throw SetupFailure("Connect to the heater before checking Bluetooth secure access.")
+        }
+        // An encrypted characteristic read lets CoreBluetooth initiate pairing.
+        // ESP-IDF reads return the previous response (possibly empty); discard it.
+        // This probe must never be interpreted as protocol or identity verification.
+        expectedCharacteristic = characteristic.uuid; endpoint = "proto-ver"
+        diagnostic?("secure_access_probe_started", ["endpoint": endpoint], nil)
+        _ = try await wait("pairing_read", seconds: 60) { peer.readValue(for: characteristic) }
+        diagnostic?("secure_access_probe_completed", ["endpoint": endpoint], nil)
+    }
     func exchange(_ endpoint: String, _ data: Data) async throws -> Data {
         guard let peer, peer.state == .connected, let characteristic = characteristics[endpoint] else {
             throw SetupFailure("Heater disconnected. Re-enter setup mode and verify it again.")
@@ -168,7 +180,7 @@ struct NearbyHeater: Identifiable {
         guard peripheral === peer, operation == "write", characteristic.uuid == expectedCharacteristic else { return }; complete(error)
     }
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-        guard peripheral === peer, operation == "read", characteristic.uuid == expectedCharacteristic else { return }
+        guard peripheral === peer, ["read", "pairing_read"].contains(operation), characteristic.uuid == expectedCharacteristic else { return }
         complete(error, value: characteristic.value)
     }
     private func complete(_ error: Error?, value: Data? = Data()) {

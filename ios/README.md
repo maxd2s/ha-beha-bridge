@@ -139,3 +139,12 @@ included in diagnostics, and swapped/missing/duplicate mappings have regression 
 Version 0.1.3 also accepts BEHA's actual firmware label `smartheater-mk2- 2.3`
 (a space precedes the version), as captured from Office. The version gate still
 rejects other firmware versions and prerelease suffixes.
+
+Version 0.1.4 adds a separate, bounded read of `proto-ver` before any protocol
+write, so CoreBluetooth can establish secure access first. The read's value is
+discarded: ESP-IDF may return an empty or previous response, which is not identity
+verification. Failure stops setup without retrying writes, and diagnostics name
+the `pairing_read` operation. This follows Apple's documented encrypted-read
+pairing mechanism and the read probe used by the Mac provisioner; recovery from
+the observed iPhone ATT error 15 is **not yet verified on hardware**. The app
+cannot inspect or delete iOS pairing records.

@@ -128,6 +128,19 @@ final class ProtocolTests: XCTestCase {
         XCTAssertEqual(packet.1.suffix(1), Data([0]))
     }
 
+    @MainActor func testEncryptionFailureStopsBeforeAnyProtocolWrite() async throws {
+        let transport = FakeTransport(); transport.secureAccessError = NSError(domain: "CBATTErrorDomain", code: 15)
+        let session = ProvisioningSession(transport)
+        do { _ = try await session.inspect(expectedID: "aabbccddeeff"); XCTFail("Encryption failure must stop inspection") }
+        catch { XCTAssertEqual(DiagnosticError(error).code, 15) }
+        XCTAssertEqual(transport.secureAccessAttempts, 1)
+        XCTAssertTrue(transport.calls.isEmpty)
+        XCTAssertNil(session.identity)
+        XCTAssertFalse(session.settingsMayHaveChanged)
+        XCTAssertEqual(session.phase, "bluetooth_secure_access")
+        do { try await session.apply(validProfile); XCTFail("Failed inspection must not allow migration") } catch {}
+        XCTAssertTrue(transport.calls.isEmpty)
+    }
     @MainActor func testIdentityMismatchStopsBeforeSettingsWrites() async throws {
         let transport = FakeTransport(); transport.deviceID = "112233445566"
         let session = ProvisioningSession(transport)
@@ -188,7 +201,14 @@ private let validProfile = SetupProfile(ssid: "Test WiFi", password: "fake-wifi-
     var disconnectOnApply = false
     var wifiState: UInt64 = 0
     var calls: [(String, Data)] = []
+    var secureAccessError: Error?
+    var secureAccessAttempts = 0
+    func prepareSecureAccess() async throws {
+        secureAccessAttempts += 1
+        if let secureAccessError { throw secureAccessError }
+    }
     func exchange(_ endpoint: String, _ data: Data) async throws -> Data {
+        guard secureAccessAttempts > 0 else { throw SetupFailure("Secure access was not checked first") }
         calls.append((endpoint, data))
         switch endpoint {
         case "proto-ver": return Data(#"{"prov":{"sec_ver":0,"cap":["no_sec","wifi_scan"]}}"#.utf8)
