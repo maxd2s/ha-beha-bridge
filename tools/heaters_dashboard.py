@@ -15,21 +15,13 @@ def dashboard(options):
         hid = heater['device_id'].lower().replace(':', '').replace('-', '')
         if not re.fullmatch('[0-9a-f]{12}', hid):
             raise ValueError('Invalid device ID')
-        stamp = f'sensor.beha_lan_{hid}_last_reading'
-        sections.append({"type": "grid", "cards": [
+        sections.append({"type": "grid", "cards": [{"type": "vertical-stack", "cards": [
             {"type": "thermostat", "entity": f"climate.beha_lan_{hid}",
              "name": heater.get('name') or f'BEHA {hid[-6:]}', "show_current_as_primary": True,
              "features": [{"type": "climate-hvac-modes", "hvac_modes": ["off", "heat"]}]},
-            {"type": "markdown", "entity_id": [stamp], "content":
-             "**Connection:** Local MQTT\n\n{% set stamp = states('" + stamp + "') %}\n"
-             "{% if as_timestamp(stamp, none) is not none %}\n"
-             "**Reading age:** {{ relative_time(as_datetime(stamp)) }} ago\n\n"
-             "Last reported {{ as_local(as_datetime(stamp)).strftime('%d %b, %H:%M:%S') }}\n"
-             "{% else %}\n**Reading age:** Waiting for the first local report\n{% endif %}"},
             {"type": "entities", "show_header_toggle": False, "entities": [
-                {"entity": f"switch.beha_lan_{hid}_power", "name": "Power"},
                 {"entity": f"switch.beha_lan_{hid}_child_lock", "name": "Child lock"},
-                {"entity": f"select.beha_lan_{hid}_heater_mode", "name": "Control mode"}]}]})
+                {"entity": f"select.beha_lan_{hid}_heater_mode", "name": "Control mode"}]}]}]})
     return {"title": "Heaters", "views": [{"title": "Heaters", "path": "overview",
              "type": "sections", "max_columns": 3, "sections": sections}]}
 

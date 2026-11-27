@@ -184,7 +184,7 @@ class LANTests(unittest.TestCase):
     def test_generated_dashboard_uses_writable_entities_without_alarm(self):
         result = dashboard({'heaters': [{'device_id': ONE, 'name': 'Study'}]})
         text = json.dumps(result)
-        for entity in (f'switch.beha_lan_{ONE}_power', f'switch.beha_lan_{ONE}_child_lock', f'select.beha_lan_{ONE}_heater_mode'):
+        for entity in (f'switch.beha_lan_{ONE}_child_lock', f'select.beha_lan_{ONE}_heater_mode'):
             self.assertIn(entity, text)
         self.assertNotIn('alarm', text.lower())
 

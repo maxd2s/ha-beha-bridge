@@ -31,42 +31,36 @@
           "type": "grid",
           "cards": [
             {
-              "type": "thermostat",
-              "entity": "climate.beha_lan_001122334455",
-              "name": "Study",
-              "show_current_as_primary": true,
-              "features": [
+              "type": "vertical-stack",
+              "cards": [
                 {
-                  "type": "climate-hvac-modes",
-                  "hvac_modes": [
-                    "off",
-                    "heat"
+                  "type": "thermostat",
+                  "entity": "climate.beha_lan_001122334455",
+                  "name": "Study",
+                  "show_current_as_primary": true,
+                  "features": [
+                    {
+                      "type": "climate-hvac-modes",
+                      "hvac_modes": [
+                        "off",
+                        "heat"
+                      ]
+                    }
                   ]
-                }
-              ]
-            },
-            {
-              "type": "markdown",
-              "entity_id": [
-                "sensor.beha_lan_001122334455_last_reading"
-              ],
-              "content": "**Connection:** Local MQTT\n\n{% set stamp = states('sensor.beha_lan_001122334455_last_reading') %}\n{% if as_timestamp(stamp, none) is not none %}\n**Reading age:** {{ relative_time(as_datetime(stamp)) }} ago\n\nLast reported {{ as_local(as_datetime(stamp)).strftime('%d %b, %H:%M:%S') }}\n{% else %}\n**Reading age:** Waiting for the first local report\n{% endif %}"
-            },
-            {
-              "type": "entities",
-              "show_header_toggle": false,
-              "entities": [
-                {
-                  "entity": "switch.beha_lan_001122334455_power",
-                  "name": "Power"
                 },
                 {
-                  "entity": "switch.beha_lan_001122334455_child_lock",
-                  "name": "Child lock"
-                },
-                {
-                  "entity": "select.beha_lan_001122334455_heater_mode",
-                  "name": "Control mode"
+                  "type": "entities",
+                  "show_header_toggle": false,
+                  "entities": [
+                    {
+                      "entity": "switch.beha_lan_001122334455_child_lock",
+                      "name": "Child lock"
+                    },
+                    {
+                      "entity": "select.beha_lan_001122334455_heater_mode",
+                      "name": "Control mode"
+                    }
+                  ]
                 }
               ]
             }
@@ -76,42 +70,36 @@
           "type": "grid",
           "cards": [
             {
-              "type": "thermostat",
-              "entity": "climate.beha_lan_aabbccddeeff",
-              "name": "Bedroom",
-              "show_current_as_primary": true,
-              "features": [
+              "type": "vertical-stack",
+              "cards": [
                 {
-                  "type": "climate-hvac-modes",
-                  "hvac_modes": [
-                    "off",
-                    "heat"
+                  "type": "thermostat",
+                  "entity": "climate.beha_lan_aabbccddeeff",
+                  "name": "Bedroom",
+                  "show_current_as_primary": true,
+                  "features": [
+                    {
+                      "type": "climate-hvac-modes",
+                      "hvac_modes": [
+                        "off",
+                        "heat"
+                      ]
+                    }
                   ]
-                }
-              ]
-            },
-            {
-              "type": "markdown",
-              "entity_id": [
-                "sensor.beha_lan_aabbccddeeff_last_reading"
-              ],
-              "content": "**Connection:** Local MQTT\n\n{% set stamp = states('sensor.beha_lan_aabbccddeeff_last_reading') %}\n{% if as_timestamp(stamp, none) is not none %}\n**Reading age:** {{ relative_time(as_datetime(stamp)) }} ago\n\nLast reported {{ as_local(as_datetime(stamp)).strftime('%d %b, %H:%M:%S') }}\n{% else %}\n**Reading age:** Waiting for the first local report\n{% endif %}"
-            },
-            {
-              "type": "entities",
-              "show_header_toggle": false,
-              "entities": [
-                {
-                  "entity": "switch.beha_lan_aabbccddeeff_power",
-                  "name": "Power"
                 },
                 {
-                  "entity": "switch.beha_lan_aabbccddeeff_child_lock",
-                  "name": "Child lock"
-                },
-                {
-                  "entity": "select.beha_lan_aabbccddeeff_heater_mode",
-                  "name": "Control mode"
+                  "type": "entities",
+                  "show_header_toggle": false,
+                  "entities": [
+                    {
+                      "entity": "switch.beha_lan_aabbccddeeff_child_lock",
+                      "name": "Child lock"
+                    },
+                    {
+                      "entity": "select.beha_lan_aabbccddeeff_heater_mode",
+                      "name": "Control mode"
+                    }
+                  ]
                 }
               ]
             }
