@@ -20,16 +20,16 @@ See [LAN installation and capabilities](beha_lan/DOCS.md),
 [dashboard generator](tools/heaters_dashboard.py).
 
 An [iPhone provisioning helper](ios/README.md) is also available as a native Xcode
-project, so the setup device can be carried to each heater. Its iOS Bluetooth
-migration is awaiting a real-device validation; the existing Python path has been
-verified on a Gen 2 heater.
+project, so the setup device can be carried to each heater. iPhone migration has
+been verified on Gen 2 firmware 2.2 and 2.3; the Python path has been verified on 2.3.
 
 Verified on Gen 2 firmware 2.3: local target, power and child-lock commands,
 all five control-mode selections, physical dial feedback, periodic temperatures,
 operation with WAN blocked after boot, and broker setting persistence over a
 normal reboot. Weekly schedule selection activates an existing program; schedule
-editing is not implemented. Other firmware and cold boot without WAN remain
-unverified. Each heater must be provisioned
+editing is not implemented. Firmware 2.2 has also passed local target, power,
+child-lock and all five control-mode writes with fresh heater readback.
+Cold boot without WAN remains unverified. Each heater must be provisioned
 individually before its LAN entities become available. The cloud bridge below
 can continue serving heaters that have not migrated.
 

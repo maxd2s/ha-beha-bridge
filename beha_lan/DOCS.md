@@ -1,7 +1,7 @@
 # BEHA LAN Bridge
 
 Unofficial local MQTT adapter for BEHA SmartHeater Gen 2 heaters. Tested on
-firmware 2.3. Gen 1 and other firmware versions are not verified. No cloud account
+firmware 2.2 and 2.3. Gen 1 and other firmware versions are not verified. No cloud account
 is required once a heater has been provisioned to your broker.
 
 ## Install

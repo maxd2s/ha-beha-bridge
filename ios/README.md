@@ -18,7 +18,9 @@ can stay unchanged. This is an unofficial community tool.
   and all three are sending fresh readings to Home Assistant. Pairing required
   retries/restarts; the earlier SMP timeout remains a known failure mode.
 - Firmware 2.2 is enabled in 0.1.5 based on analysis of its broker override handler,
-  persistent storage and local MQTT path. Its first live migration is pending.
+  persistent storage and local MQTT path. A Gen 2 heater reporting 2.2 completed
+  iPhone migration on 2026-11-27, followed by verified HA temperature, power,
+  child-lock and all five control-mode writes with fresh heater readback.
   Other firmware remains inspect-only. Simulator Bluetooth is unavailable.
 
 ## Build and install
@@ -165,5 +167,6 @@ settings writes. Static analysis of the 2.2 image confirms the same
 `iothub_override` acknowledgement and persistent local MQTT path. The existing
 identity checks, broker acknowledgement, Wi-Fi apply and fresh-telemetry checks
 remain mandatory. The review screen distinguishes this initial 2.2 validation
-from proven 2.3 migrations. Diagnostics now include a strictly numeric firmware
+from previously proven 2.3 migrations; that initial 2.2 live check has now passed.
+Diagnostics now include a strictly numeric firmware
 label; arbitrary endpoint text and credentials are not recorded.
